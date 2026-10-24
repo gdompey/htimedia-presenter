@@ -193,9 +193,16 @@ body.mac #toolbar { padding-left: 84px; }
 #clear-row button.on { background: var(--accent); color: #111; border-color: var(--accent); }
 #transition-row { display: flex; align-items: center; gap: 6px; padding: 0 10px 8px; }
 #transition-row input { width: 60px; }
-#audio-now { margin: 0 10px 8px; padding: 6px 8px; background: var(--bg3); border-radius: 6px; display: flex; align-items: center; gap: 6px; }
-#audio-now .grow { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#audio-now input[type=range] { width: 70px; }
+#audio-now, #video-now { margin: 0 10px 8px; padding: 6px 8px; background: var(--bg3); border-radius: 6px; display: flex; flex-direction: column; gap: 6px; }
+#video-now { border: 1px solid #3b5bdb55; }
+.vt-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vt-badge { font-size: 10px; font-weight: 700; letter-spacing: .08em; background: #3b5bdb; color: #fff; padding: 1px 6px; border-radius: 4px; }
+.vt-badge.audio { background: #0ca678; }
+.vt-time { font-variant-numeric: tabular-nums; font-size: 12px; color: var(--muted); white-space: nowrap; }
+.vt-scrub { flex: 1; min-width: 60px; }
+.vt-vol { width: 80px; }
+#video-now select { padding: 2px 4px; font-size: 12px; }
+#sidebar.drag-over { outline: 2px dashed var(--accent2); outline-offset: -4px; }
 #panel-body { flex: 1; overflow: auto; padding: 0 10px 10px; min-height: 0; }
 .msg-item, .timer-item { background: var(--bg3); border-radius: 6px; padding: 8px; margin-bottom: 6px; border: 1px solid transparent; }
 .msg-item.live { border-color: var(--live); }

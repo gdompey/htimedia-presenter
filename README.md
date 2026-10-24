@@ -59,6 +59,14 @@ Installed packs update automatically when a new version is published. You can tu
 - **Media bin:** drag in images, videos and audio. Set backgrounds per presentation, per slide or per theme.
 - **Themes:** font, size, colours, alignment, text box position, shadow, outline, text backing (lower thirds) and background.
 - **Phone remote:** any phone or tablet on the same Wi-Fi network can step slides and clear layers. It is PIN-protected and off by default.
+- **Import from ProPresenter:** songs from ProPresenter 4, 5, 6 and 7 (`.pro4`, `.pro5`, `.pro6`, `.pro`), with groups,
+  arrangements, slide notes and CCLI details. `.proPlaylist` files come in as playlists. You can also import a whole
+  ProPresenter library folder at once.
+- **PDF and PowerPoint import:** each page becomes a full-screen slide, rendered locally. PowerPoint, Keynote and
+  OpenDocument files are converted with LibreOffice (free), Keynote or PowerPoint, whichever is installed, and speaker
+  notes are kept. Without a converter, PowerPoint slide text is imported instead.
+- **Video controls:** play, pause, restart, scrub, time remaining, volume and mute, plus what happens when a video
+  ends (loop, stop, clear, or go to the next slide).
 - **Import and export:** `.txt` lyrics and `.htip` presentation files.
 - **Safe by design:** deleted songs go to *Recently Deleted*, and removed media goes to a `Removed Media` folder.
 

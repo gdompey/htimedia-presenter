@@ -46,6 +46,48 @@
     App.render('sidebar');
   }
 
+  // ---------- Import (ProPresenter, PDF, PowerPoint, lyrics) ----------
+
+  let importUi = null;
+
+  /** files: File objects or paths (drag and drop); null opens the file picker. folder=true imports a whole ProPresenter library. */
+  async function importFiles(files, folder) {
+    const status = h('div', {}, 'Choose what to import...');
+    const bar = h('div', { class: 'progress', style: { width: '100%' } }, h('div'));
+    importUi = { status, bar };
+    const m = App.modal({
+      title: folder ? 'Import ProPresenter library' : 'Import',
+      body: [h('div', { class: 'muted' }, 'Supported: ProPresenter 4-7 songs (.pro, .pro6, .pro5, .pro4), playlists (.proPlaylist), bundles (.proBundle), PDF, PowerPoint (.pptx, .ppt), Keynote, plain-text lyrics and .htip files.'), status, bar],
+      actions: [{ label: 'Close' }],
+      onClose: () => { importUi = null; }
+    });
+    const r = folder ? await window.hti.file.importFolder() : await window.hti.file.import(files);
+    if (!r) { m.close(); return; }
+    App.db = r.snapshot;
+    bar.firstChild.style.width = '100%';
+    const lines = [];
+    lines.push(h('div', {}, h('b', {}, r.presentations.length + ' presentation(s)'), ' imported' + (r.playlists.length ? ', plus ' + r.playlists.length + ' playlist(s)' : '') + '.'));
+    if (r.presentations.length) {
+      lines.push(h('div', { class: 'theme-list', style: { maxHeight: '200px' } }, r.presentations.slice(0, 200).map(p =>
+        h('div', { class: 'list-item', onclick: () => { m.close(); App.ui.side = 'library'; App.openPresentation(p.id); } }, h('span', { class: 'title' }, p.title), h('span', { class: 'kind' }, p.kind)))));
+    }
+    if (r.warnings.length) lines.push(h('details', {}, h('summary', { class: 'muted' }, r.warnings.length + ' note(s)'), h('div', { class: 'muted', style: { whiteSpace: 'pre-wrap' } }, r.warnings.join('\n'))));
+    if (r.errors.length) lines.push(h('div', { style: { color: '#ff8787', whiteSpace: 'pre-wrap' } }, r.errors.join('\n')));
+    status.replaceChildren(...lines);
+    if (r.playlists.length) { App.ui.side = 'playlists'; App.ui.playlistId = r.playlists[0].id; }
+    else if (r.presentations.length === 1) { App.ui.side = 'library'; App.openPresentation(r.presentations[0].id); }
+    App.render();
+    if (r.presentations.length === 1 && !r.errors.length && !r.warnings.some(w => /text only/.test(w)) && !r.playlists.length) m.close();
+    App.toast(r.presentations.length + ' imported' + (r.errors.length ? ', ' + r.errors.length + ' failed' : ''), r.errors.length && !r.presentations.length ? 'error' : '');
+  }
+
+  function importProgress(p) {
+    if (!importUi) return;
+    if (p.message) importUi.status.textContent = p.message;
+    if (p.phase === 'file' && p.count) importUi.bar.firstChild.style.width = Math.round(p.index / p.count * 100) + '%';
+    if (p.phase === 'pages' && p.total) importUi.bar.firstChild.style.width = Math.round(p.done / p.total * 100) + '%';
+  }
+
   // ---------- Resources ----------
 
   async function resources() {
@@ -372,5 +414,5 @@
     App.modal({ title: 'Keyboard Shortcuts', body: h('table', { class: 'kbd-table' }, rows.map(([k, d]) => h('tr', {}, h('td', {}, h('kbd', {}, k)), h('td', {}, d)))) });
   }
 
-  App.dialogs = { newPresentation, newPlaylist, resources, settings, themes, shortcuts, welcomeStart, welcomeProgress, welcomeDone, refreshBadge, progressHandlers };
+  App.dialogs = { importFiles, importProgress, newPresentation, newPlaylist, resources, settings, themes, shortcuts, welcomeStart, welcomeProgress, welcomeDone, refreshBadge, progressHandlers };
 })();

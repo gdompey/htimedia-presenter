@@ -11,9 +11,44 @@ async function shot(win, file) {
   fs.writeFileSync(file, img.toPNG());
 }
 
-async function run({ app, getWindows, toggleScreen, outDir, errors, resources, store }) {
+async function run({ app, getWindows, toggleScreen, outDir, errors, resources, store, runImport, importMediaFiles }) {
   fs.mkdirSync(outDir, { recursive: true });
   const report = { steps: [], errors };
+  const fixtures = process.env.HTIMEDIA_SELFTEST_FIXTURES;
+
+  // Optional: imports ProPresenter/PDF/PowerPoint fixtures and exercises video transport.
+  async function importAndVideoSteps() {
+    const files = fs.readdirSync(fixtures).filter(f => /\.(pro6?|pdf|pptx)$/i.test(f)).map(f => path.join(fixtures, f));
+    const t0 = Date.now();
+    const r = await runImport(files, {});
+    report.import = {
+      seconds: Math.round((Date.now() - t0) / 100) / 10,
+      presentations: r.presentations.map(p => ({ title: p.title, kind: p.kind, slides: p.groups.reduce((n, g) => n + g.slides.length, 0), groups: p.groups.map(g => g.name), notes: p.groups.flatMap(g => g.slides.map(s => s.notes)).filter(Boolean) })),
+      warnings: r.warnings, errors: r.errors
+    };
+    report.steps.push({ name: 'import fixtures', ok: r.errors.length === 0 && r.presentations.length === files.length, result: r.presentations.length + '/' + files.length });
+    await step('reload library', `(async () => { App.db = await window.hti.db.snapshot(); App.render(); return App.db.presentations.length; })()`, 500);
+    const pdfP = r.presentations.find(p => p.title === 'Announcements');
+    if (pdfP) {
+      await step('PDF slide live', `(() => { App.clear('all'); App.ui.side = 'library'; App.openPresentation('${pdfP.id}'); App.goLive('${pdfP.id}', 0); return App.live.index; })()`, 1500);
+      await shot(getWindows().control, path.join(outDir, '11-control-pdf.png'));
+      await shot(getWindows().output, path.join(outDir, '12-audience-pdf.png'));
+    }
+    const proP = r.presentations.find(p => /Amazing Grace/.test(p.title));
+    if (proP) {
+      await step('ProPresenter song live', `(() => { App.openPresentation('${proP.id}'); App.goLive('${proP.id}', 1); return App.liveState.slide && App.liveState.slide.text; })()`, 1200);
+      await shot(getWindows().control, path.join(outDir, '13-control-pro6.png'));
+    }
+    const videoFile = fs.readdirSync(fixtures).find(f => /\.mp4$/i.test(f));
+    if (videoFile) {
+      const [m] = importMediaFiles([path.join(fixtures, videoFile)]);
+      await step('video live', `(async () => { App.db = await window.hti.db.snapshot(); App.clear('all'); App.triggerMedia('${m.id}'); return true; })()`, 2200);
+      await step('video playing', `(() => { const s = App.videoStatus; if (!s || !(s.currentTime > 0.3) || s.paused) throw new Error('not playing: ' + JSON.stringify(s)); return Math.round(s.currentTime * 10) / 10 + 's of ' + Math.round(s.duration * 10) / 10 + 's'; })()`, 200);
+      await step('video pause + seek', `(async () => { window.hti.media.control({ action: 'pause' }); window.hti.media.control({ action: 'seek', time: 2 }); await new Promise(r => setTimeout(r, 700)); const s = App.videoStatus; if (!s.paused || Math.abs(s.currentTime - 2) > 0.3) throw new Error(JSON.stringify(s)); return 'paused at ' + s.currentTime.toFixed(1); })()`, 300);
+      await shot(getWindows().control, path.join(outDir, '14-control-video.png'));
+      await step('video clear at end', `(async () => { const m = App.get('media', '${m.id}'); m.endAction = 'clear'; m.loop = false; await App.save('media', m); window.hti.media.control({ action: 'loop', value: false }); window.hti.media.control({ action: 'seek', time: App.videoStatus.duration - 0.4 }); window.hti.media.control({ action: 'play' }); await new Promise(r => setTimeout(r, 2000)); if (App.liveState.background) throw new Error('background still live'); return 'cleared'; })()`, 300);
+    }
+  }
   const js = async (code) => getWindows().control.webContents.executeJavaScript(code);
   const step = async (name, code, delay) => {
     try {
@@ -58,6 +93,7 @@ async function run({ app, getWindows, toggleScreen, outDir, errors, resources, s
     await step('resources dialog', `(() => { App.dialogs.resources(); return true; })()`, 2500);
     await shot(getWindows().control, path.join(outDir, '09-resources.png'));
     await step('close dialog', `(() => { document.querySelectorAll('#modal-root .backdrop').forEach(b => b.remove()); return true; })()`, 300);
+    if (fixtures) await importAndVideoSteps();
     await step('logo', `(() => { App.clear('logo'); return App.live.logo; })()`, 1000);
     await shot(getWindows().output, path.join(outDir, '10-audience-logo.png'));
     await step('clear all', `(() => { App.clear('all'); return App.liveState.slide; })()`, 800);

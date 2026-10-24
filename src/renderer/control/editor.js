@@ -83,7 +83,7 @@
       const preview = h('div', { class: 'preview-big' });
       const drawPreview = () => {
         const bg = App.slideBackground(p, slide, theme);
-        HTISlide.render(preview, slide, theme, { backgroundUrl: bg && bg.url, backgroundType: bg && bg.type });
+        HTISlide.render(preview, slide, theme, { backgroundUrl: bg && bg.url, backgroundType: bg && bg.type, backgroundFit: bg && bg.fit });
       };
       text.addEventListener('input', () => {
         slide.text = text.value;

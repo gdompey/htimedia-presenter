@@ -52,29 +52,76 @@
   function mediaNode(media, opts) {
     const wrap = document.createElement('div');
     if (!media || !media.url) return wrap;
+    const contain = (opts && opts.contain) || media.fit === 'contain';
     if (media.type === 'video') {
       const v = document.createElement('video');
       v.src = media.url;
       v.autoplay = true;
-      v.loop = media.loop !== false;
+      v.loop = media.endAction ? media.endAction === 'loop' : media.loop !== false;
       v.muted = !!media.mute;
+      if (media.volume != null) v.volume = media.volume;
       v.playsInline = true;
+      if (contain) v.style.objectFit = 'contain';
       wrap.appendChild(v);
     } else {
       const img = document.createElement('img');
       img.src = media.url;
-      if (opts && opts.contain) img.style.objectFit = 'contain';
+      if (contain) img.style.objectFit = 'contain';
       wrap.appendChild(img);
     }
     return wrap;
   }
+
+  // ---------- Video transport ----------
+
+  let currentVideo = null;   // {el, mediaId, seq}
+  let lastReport = 0;
+
+  function report(force) {
+    const now = Date.now();
+    if (!force && now - lastReport < 250) return;
+    lastReport = now;
+    if (!currentVideo) { window.hti.media.reportStatus({ mediaId: null }); return; }
+    const v = currentVideo.el;
+    window.hti.media.reportStatus({
+      mediaId: currentVideo.mediaId, seq: currentVideo.seq,
+      currentTime: v.currentTime || 0, duration: isFinite(v.duration) ? v.duration : 0,
+      paused: v.paused, ended: v.ended, muted: v.muted, volume: v.volume, loop: v.loop
+    });
+  }
+
+  function attachVideo(node, bg) {
+    const v = node && node.querySelector('video');
+    currentVideo = v ? { el: v, mediaId: bg.mediaId, seq: bg.seq } : null;
+    if (v) {
+      ['timeupdate', 'play', 'pause', 'loadedmetadata', 'volumechange', 'seeked'].forEach(ev => v.addEventListener(ev, () => report(ev !== 'timeupdate')));
+      v.addEventListener('ended', () => { if (currentVideo && currentVideo.el === v) { report(true); window.hti.media.reportStatus({ mediaId: bg.mediaId, seq: bg.seq, ended: true, event: 'ended' }); } });
+    }
+    report(true);
+  }
+
+  window.hti.media.onControl((cmd) => {
+    if (!currentVideo) return;
+    const v = currentVideo.el;
+    if (cmd.action === 'toggle') { if (v.paused) v.play(); else v.pause(); }
+    else if (cmd.action === 'play') v.play();
+    else if (cmd.action === 'pause') v.pause();
+    else if (cmd.action === 'restart') { v.currentTime = 0; v.play(); }
+    else if (cmd.action === 'seek' && isFinite(cmd.time)) v.currentTime = Math.max(0, Math.min(cmd.time, v.duration || cmd.time));
+    else if (cmd.action === 'volume') v.volume = Math.max(0, Math.min(1, Number(cmd.value)));
+    else if (cmd.action === 'mute') v.muted = !!cmd.value;
+    else if (cmd.action === 'loop') v.loop = !!cmd.value;
+    report(true);
+  });
 
   function renderBackground() {
     const bg = state.background;
     const key = bg ? bg.mediaId + '|' + bg.seq : null;
     if (key === shown.bgKey) return;
     shown.bgKey = key;
-    swap(layers.bg, bg ? mediaNode(bg) : null);
+    const node = bg ? mediaNode(bg) : null;
+    swap(layers.bg, node);
+    attachVideo(node, bg || {});
   }
 
   function renderSlide() {
@@ -85,7 +132,7 @@
     if (!s) { swap(layers.slides, null); updateBase(); return; }
     const theme = core.resolveTheme(s.theme);
     const node = document.createElement('div');
-    if (s.backgroundUrl) node.appendChild(mediaNode({ url: s.backgroundUrl, type: s.backgroundType, loop: true, mute: true }));
+    if (s.backgroundUrl) node.appendChild(mediaNode({ url: s.backgroundUrl, type: s.backgroundType, fit: s.backgroundFit, loop: true, mute: true }));
     const built = S.buildText(s, theme);
     node.appendChild(built.layer);
     swap(layers.slides, node);

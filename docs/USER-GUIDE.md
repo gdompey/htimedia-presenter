@@ -36,6 +36,24 @@ Edit the song any time: select it, then **Edit**. In the editor you can:
 
 **Edit as text** rewrites the whole song from plain text.
 
+### Bring your songs from ProPresenter
+
+- **File → Import...** (Cmd/Ctrl+I), or the **Import** button in the Library, accepts ProPresenter 4–7 files
+  (`.pro`, `.pro6`, `.pro5`, `.pro4`), `.proBundle`, and `.proPlaylist`. A playlist arrives as a playlist with its
+  headers, songs and placeholders.
+- **File → Import ProPresenter Library Folder...** imports every song in a folder, usually
+  `Documents/ProPresenter/Libraries`. Songs already in your library (same title) are skipped.
+- You can also drag files straight onto the left panel.
+- Text, groups, group colours, arrangements, slide notes and CCLI details come across. ProPresenter backgrounds, media
+  and slide designs do not; choose an HTIMedia theme instead.
+
+### Sermon slides from PDF or PowerPoint
+
+Import a `.pdf`, `.pptx`, `.ppt`, `.key` or `.odp` file the same way. Every page becomes a full-screen slide. Speaker
+notes from PowerPoint appear on the stage screen's Speaker layout, and the page text shows on the stage screen.
+PowerPoint and Keynote files need one of these installed to convert them: **LibreOffice** (free, recommended),
+Microsoft PowerPoint, or Keynote (Mac). Without any of them, the slide text is imported instead of the slide pictures.
+
 ## 4. Build the service (playlist)
 
 1. Open **Playlists**. Use **+ New**, or click **Use** next to *Sunday Service Template*.
@@ -72,7 +90,11 @@ Switch the mode to **Search** to find verses by words.
   set it as the **logo**, add it to the playlist, or switch video looping on or off.
 - Choose a background for a whole song with the **No background** menu above the slides. Choose one for a single slide
   in the editor. Themes can also carry their own background.
-- **Audio** cues play through this computer's sound output. The live panel has pause, stop and volume controls.
+- **Video controls:** when a video is live, the right panel shows play/pause, restart, a scrub bar, time remaining, mute
+  and volume. Use **At end** to choose what happens when the video finishes: Loop (default), Stop at end, Clear at end,
+  or Next slide at end. This is ideal for a countdown video that should hand over to the first song. The same option is
+  in the video's right-click menu. Video sound plays from the computer running the audience screen.
+- **Audio** cues play through this computer's sound output, with play/pause, a scrub bar, stop and volume.
 - **Props** sit on top of everything, for example a "LIVE" tag or a watermark. Click a prop to switch it on or off.
 
 ## 8. Messages and timers

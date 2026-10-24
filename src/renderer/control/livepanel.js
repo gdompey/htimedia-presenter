@@ -14,7 +14,8 @@
     if (!s.slide) theme.backgroundColor = '#000';
     const bgUrl = s.slide && s.slide.backgroundUrl ? s.slide.backgroundUrl : (s.background ? s.background.url : null);
     const bgType = s.slide && s.slide.backgroundUrl ? s.slide.backgroundType : (s.background ? s.background.type : null);
-    HTISlide.render(box, s.slide, theme, { backgroundUrl: bgUrl, backgroundType: bgType, playVideo: false });
+    const bgFit = s.slide && s.slide.backgroundUrl ? s.slide.backgroundFit : (s.background ? s.background.fit : null);
+    HTISlide.render(box, s.slide, theme, { backgroundUrl: bgUrl, backgroundType: bgType, backgroundFit: bgFit, playVideo: false });
     if (s.message) box.appendChild(h('div', { class: 'pv-msg' }, core.applyTokens(s.message.text, { timers: App.timers, fields: s.message.fields })));
     if (s.prop) box.appendChild(h('div', { class: 'pv-prop' }, 'PROP'));
     if (s.logo) {

@@ -5,9 +5,11 @@
   const h = App.h;
   const core = App.core;
 
+  const END_ACTIONS = [['loop', 'Loop'], ['stop', 'Stop on last frame'], ['clear', 'Clear media'], ['next', 'Go to next slide']];
+
   function filtered(types) {
     const q = App.ui.binSearch.toLowerCase();
-    return App.coll('media').filter(m => types.includes(m.type) && (!q || m.name.toLowerCase().includes(q)))
+    return App.coll('media').filter(m => types.includes(m.type) && m.role !== 'slide' && (!q || m.name.toLowerCase().includes(q)))
       .sort((a, b) => (a.origin === b.origin ? a.name.localeCompare(b.name) : a.origin === 'imported' ? -1 : 1));
   }
 
@@ -31,7 +33,7 @@
       } } : null,
       m.type === 'image' ? { label: 'Use as logo (Logo button)', onClick: async () => { await App.saveSettings({ logoMediaId: m.id }); App.toast('Logo set'); } } : null,
       App.ui.playlistId ? { label: 'Add to playlist', onClick: () => App.addToPlaylist(App.ui.playlistId, { type: 'media', refId: m.id }) } : null,
-      m.type === 'video' ? { label: (m.loop !== false ? 'Turn loop off' : 'Turn loop on'), onClick: async () => { m.loop = m.loop === false; await App.save('media', m); } } : null,
+      ...(m.type === 'video' ? END_ACTIONS.map(([key, label]) => ({ label: (App.videoEndAction(m) === key ? '✓ ' : '    ') + 'At end: ' + label, onClick: async () => { m.endAction = key; m.loop = key === 'loop'; await App.save('media', m); App.render('video'); } })) : []),
       m.type === 'video' ? { label: (m.mute ? 'Unmute video' : 'Mute video'), onClick: async () => { m.mute = !m.mute; await App.save('media', m); } } : null,
       m.type === 'audio' ? { label: (m.loopAudio ? 'Turn loop off' : 'Loop audio'), onClick: async () => { m.loopAudio = !m.loopAudio; await App.save('media', m); } } : null,
       { label: 'Rename', onClick: async () => { const n = await App.prompt('Rename', m.name); if (n) { m.name = n; await App.save('media', m); App.render('bin'); } } },
@@ -103,21 +105,8 @@
     items.forEach(m => body.appendChild(mediaTile(m)));
   };
 
-  App.renderers.audio = function () {
-    const box = document.getElementById('audio-now');
-    const player = document.getElementById('audio-player');
-    const m = App.live.audioMediaId && App.get('media', App.live.audioMediaId);
-    if (!m) { box.classList.add('hidden'); return; }
-    box.classList.remove('hidden');
-    const vol = h('input', { type: 'range', min: 0, max: 1, step: 0.05, value: player.volume, title: 'Volume' });
-    vol.addEventListener('input', () => { player.volume = Number(vol.value); });
-    box.replaceChildren(h('span', {}, '♪'), h('span', { class: 'grow' }, m.name),
-      h('button', { class: 'small', onclick: () => { if (player.paused) player.play(); else player.pause(); App.render('audio'); } }, player.paused ? 'Play' : 'Pause'),
-      vol, h('button', { class: 'small', onclick: () => App.clear('audio') }, 'Stop'));
-  };
-
   function pickMedia(cb) {
-    const items = App.coll('media').filter(m => m.type !== 'audio');
+    const items = App.coll('media').filter(m => m.type !== 'audio' && m.role !== 'slide');
     const grid = h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px,1fr))', gap: '8px', maxHeight: '60vh', overflow: 'auto' } });
     let modal;
     grid.appendChild(h('div', { class: 'media-item', style: { display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '90px' }, onclick: () => { modal.close(); cb(null); } }, 'None'));

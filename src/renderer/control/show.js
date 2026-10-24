@@ -17,6 +17,7 @@
       hasSongs ? 'Pick a presentation from the Library or a Playlist on the left.' : 'Start by adding a song, or download the starter resources.',
       h('div', { class: 'row', style: { justifyContent: 'center', marginTop: '14px' } },
         h('button', { class: 'primary', onclick: () => App.dialogs.newPresentation() }, 'New Presentation'),
+        h('button', { onclick: () => App.dialogs.importFiles() }, 'Import (ProPresenter, PDF, PowerPoint)'),
         h('button', { onclick: () => App.setView('bible') }, 'Open Bible'),
         h('button', { onclick: () => App.dialogs.resources() }, 'Resources')));
   }
@@ -111,7 +112,7 @@
       grid.appendChild(thumb);
       requestAnimationFrame(() => {
         const bg = App.slideBackground(p, f.slide, theme);
-        const r = HTISlide.render(wrap, f.slide, theme, { backgroundUrl: bg && bg.url, backgroundType: bg && bg.type });
+        const r = HTISlide.render(wrap, f.slide, theme, { backgroundUrl: bg && bg.url, backgroundType: bg && bg.type, backgroundFit: bg && bg.fit });
         wrap._rescale = r.rescale;
       });
     });

@@ -164,7 +164,7 @@
   App.slideBackground = function (p, slide, theme) {
     const id = (slide && slide.mediaId) || (p && p.backgroundMediaId) || theme.backgroundMediaId;
     const m = id ? App.get('media', id) : null;
-    return m ? { url: App.mediaUrl(m.id), type: m.type } : null;
+    return m ? { url: App.mediaUrl(m.id), type: m.type, fit: m.fit || 'cover' } : null;
   };
 
   // ---------- Rendering hub ----------
@@ -205,11 +205,13 @@
       text: item.slide.text,
       scripture: item.slide.scripture || null,
       notes: item.slide.notes || '',
+      stageText: item.slide.stageText || '',
       groupName: item.group.name,
       groupColor: item.group.color,
       theme,
       backgroundUrl: bg ? bg.url : null,
-      backgroundType: bg ? bg.type : null
+      backgroundType: bg ? bg.type : null,
+      backgroundFit: bg ? bg.fit : null
     };
   }
 
@@ -226,7 +228,7 @@
     const next = flat[index + 1];
     window.hti.live.update({
       slide: slidePayload(p, flat, index),
-      next: next ? { text: next.slide.scripture ? next.slide.scripture.reference + ' ' + next.slide.text : next.slide.text } : null,
+      next: next ? { text: next.slide.scripture ? next.slide.scripture.reference + ' ' + next.slide.text : (next.slide.text || next.slide.stageText || '') } : null,
       slideList: flat.map((f, i) => ({ i, group: f.group.name, color: f.group.color, text: (f.slide.label ? f.slide.label + ' ' : '') + f.slide.text.slice(0, 80) })),
       logo: false
     });
@@ -306,9 +308,27 @@
     if (m.type === 'audio') return App.playAudio(m);
     App.live.backgroundMediaId = m.id;
     App.live.bgSeq += 1;
-    window.hti.live.update({ background: { mediaId: m.id, url: App.mediaUrl(m.id), type: m.type, loop: m.loop !== false, mute: !!m.mute, seq: App.live.bgSeq }, logo: false });
+    App.videoStatus = null;
+    window.hti.live.update({
+      background: {
+        mediaId: m.id, url: App.mediaUrl(m.id), type: m.type, fit: m.fit || 'cover', loop: m.loop !== false, mute: !!m.mute,
+        volume: m.volume != null ? m.volume : 1, endAction: m.type === 'video' ? App.videoEndAction(m) : null, seq: App.live.bgSeq
+      },
+      logo: false
+    });
     App.live.logo = false;
-    App.render('bin', 'status');
+    App.render('bin', 'status', 'video');
+  };
+
+  /** What happens when a video finishes: loop (default for backgrounds), stop on last frame, clear, or next slide. */
+  App.videoEndAction = (m) => m.endAction || (m.loop === false ? 'stop' : 'loop');
+
+  App.onVideoEnded = function (status) {
+    const m = App.get('media', status.mediaId);
+    if (!m || status.seq !== App.live.bgSeq || App.live.backgroundMediaId !== m.id) return;
+    const action = App.videoEndAction(m);
+    if (action === 'clear') App.clear('media');
+    else if (action === 'next') { App.clear('media'); App.step(1); }
   };
 
   App.playAudio = function (m) {
@@ -324,7 +344,7 @@
   App.clear = function (what) {
     const patch = {};
     if (what === 'all' || what === 'slide') { patch.slide = null; patch.next = null; App.live.index = -1; }
-    if (what === 'all' || what === 'media') { patch.background = null; App.live.backgroundMediaId = null; }
+    if (what === 'all' || what === 'media') { patch.background = null; App.live.backgroundMediaId = null; App.videoStatus = null; }
     if (what === 'all' || what === 'props') { patch.prop = null; App.live.propId = null; }
     if (what === 'all' || what === 'messages') { patch.message = null; App.live.messageId = null; }
     if (what === 'all' || what === 'audio') {
@@ -341,7 +361,7 @@
     }
     window.hti.live.update(patch);
     App.markLive();
-    App.render('sidebar', 'bin', 'panel', 'audio', 'status');
+    App.render('sidebar', 'bin', 'panel', 'audio', 'video', 'status');
   };
 
   App.showMessage = function (msg, fields) {

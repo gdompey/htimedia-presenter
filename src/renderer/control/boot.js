@@ -32,6 +32,17 @@
   document.getElementById('transition-dur').addEventListener('change', (e) => App.setTransition({ duration: Math.max(0, Number(e.target.value) || 0) }));
   App.media.setupDrop();
 
+  // Drop ProPresenter, PDF, PowerPoint or lyric files on the left panel to import them.
+  const side = document.getElementById('sidebar');
+  side.addEventListener('dragover', (e) => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); side.classList.add('drag-over'); } });
+  side.addEventListener('dragleave', (e) => { if (!side.contains(e.relatedTarget)) side.classList.remove('drag-over'); });
+  side.addEventListener('drop', (e) => {
+    side.classList.remove('drag-over');
+    if (!e.dataTransfer.files.length) return;
+    e.preventDefault();
+    App.dialogs.importFiles(e.dataTransfer.files);
+  });
+
   // ---------- Keyboard ----------
 
   document.addEventListener('keydown', (e) => {
@@ -55,11 +66,12 @@
 
   hti.live.onState((s) => {
     App.liveState = s;
-    App.render('preview', 'status');
+    App.render('preview', 'status', 'video');
   });
   hti.timers.onState((t) => { App.timers = t; App.render('panel'); });
-  hti.screens.onState((s) => { App.screens = s; App.render('screens', 'status'); });
+  hti.screens.onState((s) => { App.screens = s; App.render('screens', 'status', 'video'); });
   hti.db.onChanged((d) => { if (d.settings) App.db.settings = d.settings; });
+  hti.file.onProgress((p) => App.dialogs.importProgress(p));
   hti.resources.onProgress((p) => { App.dialogs.welcomeProgress(p); App.dialogs.progressHandlers.forEach(fn => fn(p)); });
   hti.resources.onSyncStart((p) => App.dialogs.welcomeStart(p));
   hti.resources.onSyncDone((r) => {
@@ -91,10 +103,9 @@
     if (cmd === 'newPresentation') App.dialogs.newPresentation();
     else if (cmd === 'newPlaylist') App.dialogs.newPlaylist();
     else if (cmd === 'importMedia') App.media.importDialog();
-    else if (cmd === 'importPresentations') {
-      const added = await hti.file.importPresentations();
-      if (added.length) { App.db.presentations.push(...added); App.ui.side = 'library'; App.openPresentation(added[0].id); App.toast(added.length + ' imported'); }
-    } else if (cmd === 'exportPresentation') {
+    else if (cmd === 'importPresentations') App.dialogs.importFiles();
+    else if (cmd === 'importFolder') App.dialogs.importFiles(null, true);
+    else if (cmd === 'exportPresentation') {
       const p = App.show.currentPresentation();
       if (p) hti.file.exportPresentation(p); else App.toast('Open a presentation first', 'error');
     } else if (cmd === 'resources') App.dialogs.resources();

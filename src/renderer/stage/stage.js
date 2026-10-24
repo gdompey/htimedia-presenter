@@ -15,7 +15,7 @@
   function slideText(s) {
     if (!s) return '';
     if (s.scripture) return s.scripture.reference + '\n' + s.text;
-    return s.text || '';
+    return s.text || s.stageText || '';
   }
 
   function render() {

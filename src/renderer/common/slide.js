@@ -93,6 +93,7 @@
       const isVideo = o.backgroundType === 'video';
       const m = el(isVideo ? 'video' : 'img', 'hti-bg-media');
       m.src = o.backgroundUrl;
+      if (o.backgroundFit === 'contain') m.style.objectFit = 'contain';
       if (isVideo) { m.muted = true; m.preload = 'metadata'; if (o.playVideo) { m.loop = true; m.autoplay = true; } }
       canvas.appendChild(m);
     }

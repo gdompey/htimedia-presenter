@@ -25,7 +25,9 @@
     search.addEventListener('input', () => { App.ui.search = search.value; renderLibraryList(listEl); });
     const listEl = h('div', { class: 'lib-list' });
     body.replaceChildren(
-      h('div', { class: 'side-tools' }, search, h('button', { title: 'New presentation', onclick: () => App.dialogs.newPresentation() }, '+')),
+      h('div', { class: 'side-tools' }, search,
+        h('button', { title: 'Import songs, ProPresenter files, PDF or PowerPoint', onclick: () => App.dialogs.importFiles() }, 'Import'),
+        h('button', { title: 'New presentation', onclick: () => App.dialogs.newPresentation() }, '+')),
       listEl
     );
     renderLibraryList(listEl, list);

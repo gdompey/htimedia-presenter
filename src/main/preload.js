@@ -26,6 +26,10 @@ contextBridge.exposeInMainWorld('hti', {
     onState: on('timers:state')
   },
   media: {
+    control: (cmd) => ipcRenderer.send('media:control', cmd),
+    reportStatus: (status) => ipcRenderer.send('media:status', status),
+    onControl: on('media:control'),
+    onStatus: on('media:status'),
     import: () => ipcRenderer.invoke('media:import'),
     importFiles: (files) => ipcRenderer.invoke('media:importPaths', Array.from(files).map(f => webUtils.getPathForFile(f))),
     url: (id) => ipcRenderer.invoke('media:url', id)
@@ -58,7 +62,9 @@ contextBridge.exposeInMainWorld('hti', {
   },
   file: {
     exportPresentation: (p) => ipcRenderer.invoke('file:exportPresentation', p),
-    importPresentations: () => ipcRenderer.invoke('file:importPresentations')
+    import: (files) => ipcRenderer.invoke('file:import', files ? Array.from(files).map(f => typeof f === 'string' ? f : webUtils.getPathForFile(f)) : null),
+    importFolder: () => ipcRenderer.invoke('file:importFolder'),
+    onProgress: on('import:progress')
   },
   app: {
     info: () => ipcRenderer.invoke('app:info'),

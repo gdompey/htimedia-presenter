@@ -2,11 +2,13 @@
 const { app, BrowserWindow, ipcMain, dialog, screen, protocol, net, Menu, shell } = require('electron');
 const fs = require('fs');
 const path = require('path');
-const { pathToFileURL } = require('url');
+const { Readable } = require('stream');
 const core = require('../shared/core.js');
 const { Store } = require('./store.js');
 const { ResourceManager, BibleService } = require('./resources.js');
 const { RemoteServer, remoteHtml } = require('./remote.js');
+const { Importer, listProPresenterFiles, ALL_EXTENSIONS } = require('./importers/index.js');
+const { PdfRenderer } = require('./importers/slides.js');
 
 const ROOT = path.join(__dirname, '..', '..');
 const RENDERER = path.join(__dirname, '..', 'renderer');
@@ -25,9 +27,12 @@ protocol.registerSchemesAsPrivileged([
 // A separate data folder for testing or a second operator profile.
 if (process.env.HTIMEDIA_USER_DATA) app.setPath('userData', process.env.HTIMEDIA_USER_DATA);
 
+// The audience screen must start videos with sound without a click (there is never a user gesture there).
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+
 if (!process.env.HTIMEDIA_SELFTEST && !app.requestSingleInstanceLock()) app.quit();
 
-let store, resources, bibles, remote;
+let store, resources, bibles, remote, pdfRenderer;
 let controlWin = null, outputWin = null, stageWin = null;
 
 // Everything the audience and stage screens need to draw. The control window owns navigation
@@ -89,6 +94,7 @@ function pushTimers() {
 
 function webPrefs() {
   return {
+    autoplayPolicy: 'no-user-gesture-required',
     preload: path.join(__dirname, 'preload.js'),
     contextIsolation: true,
     nodeIntegration: false,
@@ -221,6 +227,33 @@ function screensState() {
 
 // ---------- Media ----------
 
+const MIME = {
+  '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.bmp': 'image/bmp',
+  '.svg': 'image/svg+xml', '.avif': 'image/avif', '.mp4': 'video/mp4', '.m4v': 'video/mp4', '.mov': 'video/quicktime',
+  '.webm': 'video/webm', '.mkv': 'video/x-matroska', '.ogv': 'video/ogg', '.mp3': 'audio/mpeg', '.wav': 'audio/wav',
+  '.m4a': 'audio/mp4', '.aac': 'audio/aac', '.ogg': 'audio/ogg', '.flac': 'audio/flac', '.opus': 'audio/ogg'
+};
+
+/** Serves a local file with HTTP range support, which video and audio need for seeking. */
+function serveFile(file, rangeHeader) {
+  const size = fs.statSync(file).size;
+  const type = MIME[path.extname(file).toLowerCase()] || 'application/octet-stream';
+  const m = /^bytes=(\d*)-(\d*)$/.exec(rangeHeader || '');
+  if (m && size > 0) {
+    let start = m[1] ? parseInt(m[1], 10) : size - parseInt(m[2], 10);
+    let end = m[1] && m[2] ? parseInt(m[2], 10) : size - 1;
+    start = Math.max(0, start); end = Math.min(end, size - 1);
+    if (start > end) return new Response(null, { status: 416, headers: { 'content-range': 'bytes */' + size } });
+    return new Response(Readable.toWeb(fs.createReadStream(file, { start, end })), {
+      status: 206,
+      headers: { 'content-type': type, 'accept-ranges': 'bytes', 'content-length': String(end - start + 1), 'content-range': 'bytes ' + start + '-' + end + '/' + size }
+    });
+  }
+  return new Response(Readable.toWeb(fs.createReadStream(file)), {
+    status: 200, headers: { 'content-type': type, 'accept-ranges': 'bytes', 'content-length': String(size) }
+  });
+}
+
 function importMediaFiles(paths) {
   const added = [];
   for (const src of paths) {
@@ -307,6 +340,18 @@ function isNewer(a, b) {
   return false;
 }
 
+// ---------- Import ----------
+
+async function runImport(files, opts) {
+  if (!pdfRenderer) pdfRenderer = new PdfRenderer(path.join(__dirname, 'importer-preload.js'), path.join(RENDERER, 'importer', 'pdf.html'));
+  const importer = new Importer({
+    store, pdfRenderer,
+    onProgress: p => controlWin && controlWin.webContents.send('import:progress', p)
+  });
+  const result = await importer.importFiles(files, Object.assign({ maxLines: store.settings.maxLinesPerSlide || 0 }, opts));
+  return Object.assign(result, { snapshot: store.snapshot() });
+}
+
 // ---------- IPC ----------
 
 function registerIpc() {
@@ -335,6 +380,14 @@ function registerIpc() {
     pushLive();
   });
   ipcMain.handle('live:get', () => live);
+
+  // Video transport: the audience screen owns playback; the control window drives it and shows status.
+  ipcMain.on('media:control', (e, cmd) => {
+    if (outputWin && !outputWin.isDestroyed()) outputWin.webContents.send('media:control', cmd);
+  });
+  ipcMain.on('media:status', (e, status) => {
+    if (controlWin && !controlWin.isDestroyed()) controlWin.webContents.send('media:status', status);
+  });
 
   ipcMain.handle('timers:action', (e, id, action, patch) => timerAction(id, action, patch));
 
@@ -390,29 +443,31 @@ function registerIpc() {
     fs.writeFileSync(r.filePath, JSON.stringify({ format: 'htimedia-presentation', version: 1, presentation }, null, 2));
     return r.filePath;
   });
-  ipcMain.handle('file:importPresentations', async () => {
-    const r = await dialog.showOpenDialog(controlWin, {
-      title: 'Import presentations or lyrics', properties: ['openFile', 'multiSelections'],
-      filters: [{ name: 'Presentations and lyrics', extensions: ['htip', 'txt', 'json'] }]
-    });
-    if (r.canceled) return [];
-    const added = [];
-    for (const f of r.filePaths) {
-      const raw = fs.readFileSync(f, 'utf8');
-      let p = null;
-      if (f.endsWith('.txt')) {
-        p = core.presentationFromLyrics(path.basename(f, '.txt'), raw, { maxLines: store.settings.maxLinesPerSlide });
-      } else {
-        try {
-          const data = JSON.parse(raw);
-          p = data.presentation || data;
-          if (!p.groups) p = null;
-          else { p.id = core.uid('p'); p.title = p.title || path.basename(f); }
-        } catch (err) { p = null; }
-      }
-      if (p) added.push(store.upsert('presentations', p));
+  ipcMain.handle('file:import', async (e, givenPaths) => {
+    let files = givenPaths;
+    if (!files || !files.length) {
+      const r = await dialog.showOpenDialog(controlWin, {
+        title: 'Import songs, ProPresenter files, PDF or PowerPoint', properties: ['openFile', 'multiSelections'],
+        filters: [
+          { name: 'All supported', extensions: ALL_EXTENSIONS.map(x => x.slice(1)) },
+          { name: 'ProPresenter', extensions: ['pro', 'pro6', 'pro5', 'pro4', 'proBundle', 'proPlaylist'] },
+          { name: 'PDF and PowerPoint', extensions: ['pdf', 'pptx', 'ppt', 'key', 'odp'] },
+          { name: 'Lyrics and HTIMedia', extensions: ['txt', 'htip', 'json'] }
+        ]
+      });
+      if (r.canceled) return null;
+      files = r.filePaths;
     }
-    return added;
+    return runImport(files.filter(f => typeof f === 'string' && fs.existsSync(f)), {});
+  });
+  ipcMain.handle('file:importFolder', async () => {
+    const r = await dialog.showOpenDialog(controlWin, {
+      title: 'Choose a ProPresenter library folder (e.g. Documents/ProPresenter/Libraries)', properties: ['openDirectory']
+    });
+    if (r.canceled) return null;
+    const files = listProPresenterFiles(r.filePaths[0]);
+    if (!files.length) return { presentations: [], playlists: [], media: [], warnings: [], errors: ['No ProPresenter files found in that folder.'] };
+    return runImport(files, { skipExisting: true });
   });
   ipcMain.handle('app:info', () => ({
     version: app.getVersion(), platform: process.platform, dataDir: store.dataDir, resourcesDir: store.resourcesDir,
@@ -442,7 +497,8 @@ function buildMenu() {
         { label: 'New Presentation', accelerator: 'CmdOrCtrl+N', click: send('newPresentation') },
         { label: 'New Playlist', accelerator: 'CmdOrCtrl+Shift+N', click: send('newPlaylist') },
         { type: 'separator' },
-        { label: 'Import Presentations / Lyrics...', accelerator: 'CmdOrCtrl+I', click: send('importPresentations') },
+        { label: 'Import (ProPresenter, PDF, PowerPoint, Lyrics)...', accelerator: 'CmdOrCtrl+I', click: send('importPresentations') },
+        { label: 'Import ProPresenter Library Folder...', click: send('importFolder') },
         { label: 'Import Media...', accelerator: 'CmdOrCtrl+Shift+I', click: send('importMedia') },
         { label: 'Export Presentation...', accelerator: 'CmdOrCtrl+E', click: send('exportPresentation') },
         { type: 'separator' },
@@ -506,7 +562,7 @@ app.whenReady().then(async () => {
     if (u.host === 'media') {
       const media = store.get('media', decodeURIComponent(u.pathname.slice(1)));
       const file = store.mediaPath(media);
-      if (file && fs.existsSync(file)) return net.fetch(pathToFileURL(file).toString(), { headers: req.headers });
+      if (file && fs.existsSync(file)) return serveFile(file, req.headers.get('range'));
     }
     return new Response('Not found', { status: 404 });
   });
@@ -532,7 +588,7 @@ app.whenReady().then(async () => {
     if (process.env.HTIMEDIA_SELFTEST) {
       require('./selftest.js').run({
         app, getWindows: () => ({ control: controlWin, output: outputWin, stage: stageWin }),
-        toggleScreen, outDir: process.env.HTIMEDIA_SELFTEST, errors: rendererErrors, resources, store
+        toggleScreen, outDir: process.env.HTIMEDIA_SELFTEST, errors: rendererErrors, resources, store, runImport, importMediaFiles
       });
       return;
     }
