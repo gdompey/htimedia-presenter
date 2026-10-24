@@ -57,7 +57,7 @@ class ResourceManager {
     for (const [id, info] of Object.entries(installed)) {
       if (!packs.some(p => p.id === id)) packs.push({ id, name: info.name || id, type: info.type, version: info.version, installedVersion: info.version, updateAvailable: false, offline: true });
     }
-    return { manifestUrl: this.manifestUrl(), online: !!this.manifest, lastCheck: this.store.settings.resources.lastCheck, busy: this.busy, packs };
+    return { manifestUrl: this.manifestUrl(), online: !!this.manifest, error: this.lastError || undefined, lastCheck: this.store.settings.resources.lastCheck, busy: this.busy, packs };
   }
 
   async downloadPack(pack) {
@@ -185,7 +185,9 @@ class ResourceManager {
     let manifest;
     try {
       manifest = await this.fetchManifest();
+      this.lastError = null;
     } catch (e) {
+      this.lastError = e.message;
       return { online: false, error: e.message, bundled };
     }
     const installed = this.installed();

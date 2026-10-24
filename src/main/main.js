@@ -273,6 +273,18 @@ async function applyRemote() {
   }
 }
 
+// Offline at launch (or GitHub briefly unreachable): keep trying quietly in the background.
+function retrySync(attempt) {
+  if (attempt > 6) return;
+  setTimeout(async () => {
+    if (!controlWin || resources.busy) return retrySync(attempt + 1);
+    const result = await resources.sync({ firstRun: !store.settings.resources.firstRunDone });
+    bibles.invalidate();
+    if (!result.online) return retrySync(attempt + 1);
+    if (controlWin) controlWin.webContents.send('resources:syncDone', Object.assign(result, { firstRun: false, snapshot: store.snapshot(), status: resources.status() }));
+  }, Math.min(30000 * attempt, 300000));
+}
+
 // ---------- Updates ----------
 
 async function checkAppUpdate() {
@@ -516,6 +528,7 @@ app.whenReady().then(async () => {
     const result = await resources.sync({ firstRun });
     bibles.invalidate();
     if (controlWin) controlWin.webContents.send('resources:syncDone', Object.assign(result, { firstRun, snapshot: store.snapshot(), status: resources.status() }));
+    if (!result.online && !process.env.HTIMEDIA_SELFTEST) retrySync(1);
     if (process.env.HTIMEDIA_SELFTEST) {
       require('./selftest.js').run({
         app, getWindows: () => ({ control: controlWin, output: outputWin, stage: stageWin }),
