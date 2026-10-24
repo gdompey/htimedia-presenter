@@ -118,4 +118,5 @@
   setInterval(() => { App.tickTimers(); if (App.liveState.message) App.render('preview'); }, 1000);
 
   App.render();
+  hti.app.ready();
 })();

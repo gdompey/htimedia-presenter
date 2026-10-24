@@ -71,6 +71,7 @@ contextBridge.exposeInMainWorld('hti', {
     openFolder: (which) => ipcRenderer.invoke('app:openFolder', which),
     openExternal: (url) => ipcRenderer.invoke('app:openExternal', url),
     chooseDataDir: () => ipcRenderer.invoke('app:chooseDataDir'),
+    ready: () => ipcRenderer.send('control:ready'),
     onMenu: on('menu:command'),
     onUpdate: on('app:update')
   }

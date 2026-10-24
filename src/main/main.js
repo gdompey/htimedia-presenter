@@ -30,7 +30,7 @@ if (process.env.HTIMEDIA_USER_DATA) app.setPath('userData', process.env.HTIMEDIA
 // The audience screen must start videos with sound without a click (there is never a user gesture there).
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 
-if (!process.env.HTIMEDIA_SELFTEST && !app.requestSingleInstanceLock()) app.quit();
+if (!process.env.HTIMEDIA_SELFTEST && !process.env.HTIMEDIA_SCRIPT && !app.requestSingleInstanceLock()) app.quit();
 
 let store, resources, bibles, remote, pdfRenderer;
 let controlWin = null, outputWin = null, stageWin = null;
@@ -578,17 +578,21 @@ app.whenReady().then(async () => {
   // Timers tick in each window from shared snapshots; nothing to schedule here.
   applyRemote();
 
-  controlWin.webContents.once('did-finish-load', async () => {
+  // Start first-run setup only once the control window has its listeners attached.
+  ipcMain.once('control:ready', async () => {
     const firstRun = !store.settings.resources.firstRunDone;
     controlWin.webContents.send('resources:syncStart', { firstRun });
     const result = await resources.sync({ firstRun });
     bibles.invalidate();
     if (controlWin) controlWin.webContents.send('resources:syncDone', Object.assign(result, { firstRun, snapshot: store.snapshot(), status: resources.status() }));
-    if (!result.online && !process.env.HTIMEDIA_SELFTEST) retrySync(1);
-    if (process.env.HTIMEDIA_SELFTEST) {
-      require('./selftest.js').run({
+    if (!result.online && !process.env.HTIMEDIA_SELFTEST && !process.env.HTIMEDIA_SCRIPT) retrySync(1);
+    // Automation hooks: the smoke test, and (development builds only) an external script such as
+    // the user-guide screenshot capture.
+    const script = process.env.HTIMEDIA_SELFTEST ? './selftest.js' : (!app.isPackaged && process.env.HTIMEDIA_SCRIPT) || null;
+    if (script) {
+      require(script).run({
         app, getWindows: () => ({ control: controlWin, output: outputWin, stage: stageWin }),
-        toggleScreen, outDir: process.env.HTIMEDIA_SELFTEST, errors: rendererErrors, resources, store, runImport, importMediaFiles
+        toggleScreen, outDir: process.env.HTIMEDIA_SELFTEST || process.env.HTIMEDIA_OUT, errors: rendererErrors, resources, store, runImport, importMediaFiles
       });
       return;
     }
