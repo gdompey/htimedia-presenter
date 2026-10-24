@@ -1,0 +1,109 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' htimedia: data:; media-src 'self' htimedia:; style-src 'self' 'unsafe-inline'; script-src 'self'">
+  <title>HTIMedia Presenter</title>
+  <link rel="stylesheet" href="../common/slide.css">
+  <link rel="stylesheet" href="control.css">
+</head>
+<body>
+  <div id="app">
+    <header id="toolbar">
+      <div class="brand"><span class="brand-mark">HTI</span><span class="brand-name">Media Presenter</span></div>
+      <nav id="view-tabs">
+        <button data-view="show" class="active">Show</button>
+        <button data-view="edit">Edit</button>
+        <button data-view="bible">Bible</button>
+      </nav>
+      <div class="toolbar-right">
+        <button id="btn-themes" title="Themes">Themes</button>
+        <button id="btn-resources" title="Resource packs">Resources <span id="res-badge" class="badge hidden"></span></button>
+        <button id="btn-settings" title="Settings">Settings</button>
+        <div class="screen-toggles">
+          <button id="btn-audience" class="screen-btn" title="Audience screen (Cmd/Ctrl+1)"><span class="dot"></span>Audience</button>
+          <button id="btn-stage" class="screen-btn" title="Stage screen (Cmd/Ctrl+2)"><span class="dot"></span>Stage</button>
+        </div>
+      </div>
+    </header>
+
+    <div id="update-bar" class="hidden"></div>
+
+    <div id="workspace">
+      <aside id="sidebar">
+        <div class="side-tabs">
+          <button data-side="library" class="active">Library</button>
+          <button data-side="playlists">Playlists</button>
+        </div>
+        <div id="side-body"></div>
+      </aside>
+
+      <main id="center">
+        <div id="center-body"></div>
+        <section id="media-bin">
+          <div class="bin-head">
+            <div class="bin-tabs">
+              <button data-bin="media" class="active">Media</button>
+              <button data-bin="audio">Audio</button>
+              <button data-bin="props">Props</button>
+            </div>
+            <input id="bin-search" type="search" placeholder="Filter">
+            <button id="bin-import">Import...</button>
+          </div>
+          <div id="bin-body" class="drop-zone"></div>
+        </section>
+      </main>
+
+      <aside id="live-panel">
+        <div id="preview-wrap">
+          <div class="panel-title">LIVE <span id="live-title"></span></div>
+          <div id="preview"></div>
+        </div>
+        <div id="clear-row">
+          <button data-clear="all" class="clear-all" title="F1">Clear All</button>
+          <button data-clear="slide" title="F2">Slide</button>
+          <button data-clear="media" title="F3">Media</button>
+          <button data-clear="props" title="F4">Props</button>
+          <button data-clear="messages" title="F5">Msg</button>
+          <button data-clear="audio" title="F6">Audio</button>
+          <button data-clear="logo" id="btn-logo" title="F7">Logo</button>
+        </div>
+        <div id="transition-row">
+          <label>Transition</label>
+          <select id="transition-type"><option value="fade">Fade</option><option value="cut">Cut</option></select>
+          <input id="transition-dur" type="number" min="0" max="5" step="0.1">
+          <span class="muted">s</span>
+        </div>
+        <div id="audio-now" class="hidden"></div>
+        <div class="panel-tabs">
+          <button data-panel="messages" class="active">Messages</button>
+          <button data-panel="timers">Timers</button>
+          <button data-panel="stage">Stage</button>
+        </div>
+        <div id="panel-body"></div>
+      </aside>
+    </div>
+
+    <footer id="statusbar">
+      <span id="status-left"></span>
+      <span id="status-right"></span>
+    </footer>
+  </div>
+
+  <div id="modal-root"></div>
+  <div id="toast-root"></div>
+  <audio id="audio-player"></audio>
+
+  <script src="../../shared/core.js"></script>
+  <script src="../common/slide.js"></script>
+  <script src="app.js"></script>
+  <script src="library.js"></script>
+  <script src="show.js"></script>
+  <script src="editor.js"></script>
+  <script src="bible.js"></script>
+  <script src="media.js"></script>
+  <script src="livepanel.js"></script>
+  <script src="dialogs.js"></script>
+  <script src="boot.js"></script>
+</body>
+</html>

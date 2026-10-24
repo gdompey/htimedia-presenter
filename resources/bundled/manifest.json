@@ -1,0 +1,49 @@
+{
+  "schema": 1,
+  "packs": [
+    {
+      "id": "bible-kjv",
+      "type": "bible",
+      "name": "King James Version (1769)",
+      "version": 1,
+      "default": true,
+      "description": "English · public domain",
+      "file": "bible-kjv-v1.json.gz",
+      "size": 1213838,
+      "sha256": "132f5fd133ff292daa1aa014141f427b09a363f942c729fd2e75f14338c35910"
+    },
+    {
+      "id": "themes-core",
+      "type": "themes",
+      "name": "Core Themes",
+      "version": 1,
+      "default": true,
+      "description": "Worship, scripture, sermon, lower-third and announcement themes",
+      "file": "themes-core-v1.json.gz",
+      "size": 786,
+      "sha256": "d4dbd08b219a95880ea4757d27cc4aa347a3d661de322dde816311d636f2d5fe"
+    },
+    {
+      "id": "backgrounds-core",
+      "type": "media",
+      "name": "Core Backgrounds",
+      "version": 1,
+      "default": true,
+      "description": "12 still and motion backgrounds",
+      "file": "backgrounds-core-v1.json.gz",
+      "size": 8011,
+      "sha256": "19c6d95ddb7a721d1c19cb3db73cc9c12663a8504e23aff5a51cb71e97a4a9d3"
+    },
+    {
+      "id": "songs-hymns",
+      "type": "songs",
+      "name": "Classic Hymns",
+      "version": 1,
+      "default": true,
+      "description": "12 public-domain hymns, ready to present",
+      "file": "songs-hymns-v1.json.gz",
+      "size": 5645,
+      "sha256": "a28293ade3e38f51ef52393016b1c616c2860203b3b6e970c8a91c7253885435"
+    }
+  ]
+}

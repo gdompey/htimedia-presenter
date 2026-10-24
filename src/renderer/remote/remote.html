@@ -1,0 +1,99 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>HTIMedia Remote</title>
+  <style>
+    :root { color-scheme: dark; }
+    body { margin: 0; background: #15171c; color: #e9ecef; font-family: -apple-system, "Segoe UI", Roboto, sans-serif; }
+    header { padding: 14px 16px; background: #1c1f26; display: flex; align-items: center; gap: 10px; position: sticky; top: 0; }
+    .mark { background: linear-gradient(135deg, #f2b705, #e8590c); color: #111; font-weight: 800; padding: 2px 7px; border-radius: 5px; }
+    #title { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: .8; }
+    main { padding: 14px 16px 120px; }
+    .now { background: #252932; border-radius: 10px; padding: 14px; border-left: 4px solid #ff6b1a; white-space: pre-wrap; font-size: 18px; min-height: 60px; }
+    .next { margin-top: 8px; color: #8b93a1; white-space: pre-wrap; }
+    .slides { margin-top: 16px; display: flex; flex-direction: column; gap: 6px; }
+    .slide { background: #1c1f26; border-radius: 8px; padding: 10px 12px; border: 1px solid #343a46; font-size: 14px; display: flex; gap: 10px; }
+    .slide.live { border-color: #ff6b1a; background: #2d221c; }
+    .slide .g { font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 4px; color: #fff; align-self: flex-start; white-space: nowrap; }
+    .bar { position: fixed; left: 0; right: 0; bottom: 0; background: #1c1f26; padding: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; border-top: 1px solid #343a46; }
+    .clears { grid-column: span 2; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+    button { font: inherit; color: inherit; background: #2f3440; border: 1px solid #434a58; border-radius: 10px; padding: 14px; font-size: 18px; }
+    .clears button { padding: 8px 4px; font-size: 13px; }
+    button.go { background: #2f6fde; border-color: #2f6fde; font-weight: 700; }
+    #login { padding: 40px 20px; text-align: center; }
+    #login input { font-size: 24px; padding: 10px; width: 160px; text-align: center; border-radius: 8px; border: 1px solid #434a58; background: #0f1115; color: #fff; }
+    .err { color: #ff8787; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <header><span class="mark">HTI</span><span id="title">Remote</span></header>
+  <div id="login" hidden>
+    <p>Enter the remote PIN shown in HTIMedia Presenter (Settings &gt; Remote).</p>
+    <input id="pin" inputmode="numeric" autocomplete="off"><br><br>
+    <button class="go" id="pin-go">Connect</button>
+    <div class="err" id="pin-err"></div>
+  </div>
+  <main id="ui" hidden>
+    <div class="now" id="now"></div>
+    <div class="next" id="next"></div>
+    <div class="slides" id="slides"></div>
+  </main>
+  <div class="bar" id="bar" hidden>
+    <button id="prev">◀ Prev</button>
+    <button class="go" id="nextb">Next ▶</button>
+    <div class="clears">
+      <button data-cmd="clearAll">Clear All</button>
+      <button data-cmd="clearSlide">Slide</button>
+      <button data-cmd="clearMedia">Media</button>
+      <button data-cmd="logo">Logo</button>
+    </div>
+  </div>
+  <script>
+    (function () {
+      var pin = localStorage.getItem('hti-pin') || '';
+      var es = null;
+      function q(id) { return document.getElementById(id); }
+      function api(path) { return path + (path.indexOf('?') < 0 ? '?' : '&') + 'pin=' + encodeURIComponent(pin); }
+      function cmd(c, index) {
+        fetch(api('/api/cmd'), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ cmd: c, index: index || 0 }) });
+      }
+      function render(s) {
+        q('title').textContent = s.title || 'Nothing live';
+        q('now').textContent = s.current || '—';
+        q('next').textContent = s.next ? 'Next: ' + s.next : '';
+        var box = q('slides');
+        box.innerHTML = '';
+        (s.slides || []).forEach(function (sl) {
+          var d = document.createElement('div');
+          d.className = 'slide' + (sl.i === s.index ? ' live' : '');
+          var g = document.createElement('span'); g.className = 'g'; g.style.background = sl.color; g.textContent = (sl.i + 1) + ' ' + sl.group;
+          var t = document.createElement('span'); t.textContent = sl.text;
+          d.appendChild(g); d.appendChild(t);
+          d.onclick = function () { cmd('goto', sl.i); };
+          box.appendChild(d);
+        });
+        var live = box.querySelector('.live');
+        if (live) live.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      }
+      function connect() {
+        fetch(api('/api/state')).then(function (r) {
+          if (r.status === 401) { q('login').hidden = false; q('ui').hidden = true; q('bar').hidden = true; if (pin) q('pin-err').textContent = 'Wrong PIN'; return; }
+          localStorage.setItem('hti-pin', pin);
+          q('login').hidden = true; q('ui').hidden = false; q('bar').hidden = false;
+          if (es) es.close();
+          es = new EventSource(api('/api/events'));
+          es.onmessage = function (e) { render(JSON.parse(e.data)); };
+          es.onerror = function () { q('title').textContent = 'Reconnecting...'; };
+        }).catch(function () { q('title').textContent = 'Cannot reach HTIMedia Presenter'; setTimeout(connect, 3000); });
+      }
+      q('pin-go').onclick = function () { pin = q('pin').value.trim(); connect(); };
+      q('prev').onclick = function () { cmd('prev'); };
+      q('nextb').onclick = function () { cmd('next'); };
+      Array.prototype.forEach.call(document.querySelectorAll('[data-cmd]'), function (b) { b.onclick = function () { cmd(b.getAttribute('data-cmd')); }; });
+      connect();
+    })();
+  </script>
+</body>
+</html>

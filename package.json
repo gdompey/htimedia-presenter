@@ -1,0 +1,99 @@
+{
+  "name": "htimedia-presenter",
+  "productName": "HTIMedia Presenter",
+  "version": "1.0.0",
+  "description": "Local-first worship and live presentation software for Heroes' Temple International. Runs fully offline on macOS and Windows.",
+  "main": "src/main/main.js",
+  "author": "GABCEL Labs for Heroes' Temple International",
+  "license": "MIT",
+  "homepage": "https://github.com/gdompey/htimedia-presenter",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gdompey/htimedia-presenter.git"
+  },
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test test/*.test.js",
+    "build:icons": "electron scripts/build-icons.js",
+    "build:resources": "node scripts/build-resources.js",
+    "dist:mac": "electron-builder --mac",
+    "dist:win": "electron-builder --win",
+    "dist": "electron-builder",
+    "selftest": "node scripts/run-selftest.js"
+  },
+  "devDependencies": {
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "org.heroestemple.htimedia-presenter",
+    "productName": "HTIMedia Presenter",
+    "copyright": "Copyright (c) 2026 GABCEL Labs for Heroes Temple International",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/**/*",
+      "resources/bundled/**/*",
+      "build/icon.png",
+      "package.json",
+      "!**/*.map"
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "icon": "build/icon.png",
+      "identity": null,
+      "hardenedRuntime": false,
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "HTIMedia-Presenter-${version}-mac-${arch}.${ext}"
+    },
+    "dmg": {
+      "title": "HTIMedia Presenter ${version}"
+    },
+    "win": {
+      "icon": "build/icon.png",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "HTIMedia Presenter",
+      "artifactName": "HTIMedia-Presenter-Setup-${version}-win-x64.${ext}"
+    },
+    "portable": {
+      "artifactName": "HTIMedia-Presenter-${version}-win-x64-portable.${ext}"
+    },
+    "publish": null
+  }
+}

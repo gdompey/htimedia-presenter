@@ -1,0 +1,24 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' htimedia: data:; style-src 'self' 'unsafe-inline'; script-src 'self'">
+  <title>HTIMedia - Stage</title>
+  <link rel="stylesheet" href="stage.css">
+</head>
+<body>
+  <div id="stage">
+    <header>
+      <div id="clock" class="big-num"></div>
+      <div id="title"></div>
+      <div id="timer" class="big-num"></div>
+    </header>
+    <div id="stage-message"></div>
+    <section id="current-wrap"><div class="label">NOW <span id="group"></span></div><div id="current"></div></section>
+    <section id="next-wrap"><div class="label">NEXT</div><div id="next"></div></section>
+    <section id="notes-wrap"><div class="label">NOTES</div><div id="notes"></div></section>
+  </div>
+  <script src="../../shared/core.js"></script>
+  <script src="stage.js"></script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+html, body { margin: 0; height: 100%; background: #000; overflow: hidden; cursor: none; -webkit-user-select: none; user-select: none; }
+#screen { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0; overflow: hidden; background: #000; }
+#base, #bg, #slides, #prop, #logo { position: absolute; inset: 0; }
+.layer-item { position: absolute; inset: 0; opacity: 0; transition-property: opacity; transition-timing-function: ease; }
+.layer-item.in { opacity: 1; }
+.layer-item img, .layer-item video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+#prop .layer-item img { object-fit: contain; }
+.prop-text { position: absolute; right: 60px; top: 50px; font: 700 54px "Segoe UI", Helvetica, Arial, sans-serif; color: #fff; text-shadow: 0 3px 10px #000; }
+#message {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 120px; display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(90deg, rgba(10,20,60,.92), rgba(120,20,40,.92)); color: #fff;
+  font: 600 52px "Segoe UI", Helvetica, Arial, sans-serif; transform: translateY(100%); transition: transform .45s ease;
+  border-top: 4px solid #f2c94c;
+}
+#message.show { transform: translateY(0); }
+#message .msg-inner { white-space: nowrap; padding: 0 60px; }
+#logo { background: #000; opacity: 0; transition: opacity .6s ease; display: flex; align-items: center; justify-content: center; }
+#logo.show { opacity: 1; }
+#logo img { max-width: 60%; max-height: 60%; object-fit: contain; }
+#logo .logo-text { color: #fff; font: 700 90px "Segoe UI", Helvetica, Arial, sans-serif; letter-spacing: .04em; text-align: center; }
+#logo .logo-text small { display: block; font-size: 36px; opacity: .7; font-weight: 500; letter-spacing: .3em; margin-top: 20px; }

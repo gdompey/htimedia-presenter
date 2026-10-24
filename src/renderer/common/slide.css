@@ -1,0 +1,16 @@
+.hti-wrap { position: relative; overflow: hidden; width: 100%; }
+.hti-canvas {
+  position: absolute; left: 0; top: 0; width: 1920px; height: 1080px;
+  transform-origin: 0 0; overflow: hidden;
+}
+.hti-bg-media { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.hti-text-layer { position: absolute; inset: 0; }
+.hti-text-box {
+  position: absolute; display: flex; flex-direction: column; box-sizing: border-box; overflow: hidden;
+}
+.hti-text-inner { white-space: pre-wrap; overflow-wrap: break-word; max-height: 100%; }
+.hti-scripture { display: flex; flex-direction: column; gap: .4em; }
+.hti-scripture.multi { flex-direction: row; gap: 1.2em; text-align: left; }
+.hti-scripture.multi .hti-scripture-col { flex: 1; }
+.hti-scripture-tr { font-size: .5em; margin-top: .4em; letter-spacing: .08em; text-transform: uppercase; }
+.hti-scripture-ref { margin-top: .6em; font-weight: 600; }
