@@ -1,7 +1,7 @@
 {
   "name": "htimedia-presenter",
   "productName": "HTIMedia Presenter",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Local-first worship and live presentation software for Heroes' Temple International. Runs fully offline on macOS and Windows.",
   "main": "src/main/main.js",
   "author": "GABCEL Labs for Heroes' Temple International",
