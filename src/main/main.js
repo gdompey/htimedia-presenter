@@ -1,5 +1,5 @@
 // HTIMedia Presenter - Electron main process.
-const { app, BrowserWindow, ipcMain, dialog, screen, protocol, net, Menu, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, screen, protocol, net, Menu, shell, session } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const { Readable } = require('stream');
@@ -9,6 +9,8 @@ const { ResourceManager, BibleService } = require('./resources.js');
 const { RemoteServer, remoteHtml } = require('./remote.js');
 const { Importer, listProPresenterFiles, ALL_EXTENSIONS } = require('./importers/index.js');
 const { PdfRenderer } = require('./importers/slides.js');
+const { parseBibleFile, saveImportedBible } = require('./importers/bible.js');
+const { readSongList } = require('./importers/songfiles.js');
 
 const ROOT = path.join(__dirname, '..', '..');
 const RENDERER = path.join(__dirname, '..', 'renderer');
@@ -342,12 +344,13 @@ function isNewer(a, b) {
 
 // ---------- Import ----------
 
-async function runImport(files, opts) {
+function makeImporter() {
   if (!pdfRenderer) pdfRenderer = new PdfRenderer(path.join(__dirname, 'importer-preload.js'), path.join(RENDERER, 'importer', 'pdf.html'));
-  const importer = new Importer({
-    store, pdfRenderer,
-    onProgress: p => controlWin && controlWin.webContents.send('import:progress', p)
-  });
+  return new Importer({ store, pdfRenderer, onProgress: p => controlWin && controlWin.webContents.send('import:progress', p) });
+}
+
+async function runImport(files, opts) {
+  const importer = makeImporter();
   const result = await importer.importFiles(files, Object.assign({ maxLines: store.settings.maxLinesPerSlide || 0 }, opts));
   return Object.assign(result, { snapshot: store.snapshot() });
 }
@@ -406,6 +409,22 @@ function registerIpc() {
   ipcMain.handle('bible:chapter', (e, id, b, c) => bibles.chapter(id, b, c));
   ipcMain.handle('bible:lookup', (e, ref, translations) => bibles.lookup(ref, translations));
   ipcMain.handle('bible:search', (e, id, q) => bibles.search(id, q));
+  ipcMain.handle('bible:import', async (e, meta) => {
+    const r = await dialog.showOpenDialog(controlWin, {
+      title: 'Import a Bible file', properties: ['openFile'],
+      filters: [{ name: 'Bible files', extensions: ['xml', 'osis', 'usfx', 'txt', 'json', 'zef'] }]
+    });
+    if (r.canceled) return null;
+    try {
+      const parsed = parseBibleFile(r.filePaths[0]);
+      const saved = saveImportedBible(path.join(store.resourcesDir, 'bibles'), parsed, Object.assign({ name: parsed.guess.name, abbrev: parsed.guess.abbrev }, meta));
+      bibles.invalidate();
+      return { ok: true, abbrev: saved.abbrev, verses: parsed.verses };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  });
+  ipcMain.handle('bible:removeImported', (e, id) => { const ok = bibles.removeImported(id); bibles.invalidate(); return ok; });
 
   ipcMain.handle('resources:status', () => resources.status());
   ipcMain.handle('resources:refresh', async () => {
@@ -450,6 +469,7 @@ function registerIpc() {
         title: 'Import songs, ProPresenter files, PDF or PowerPoint', properties: ['openFile', 'multiSelections'],
         filters: [
           { name: 'All supported', extensions: ALL_EXTENSIONS.map(x => x.slice(1)) },
+          { name: 'Song files (Word, text, ChordPro, OpenLyrics, SongSelect, CSV)', extensions: ['txt', 'docx', 'rtf', 'cho', 'chopro', 'chordpro', 'crd', 'xml', 'usr', 'csv'] },
           { name: 'ProPresenter', extensions: ['pro', 'pro6', 'pro5', 'pro4', 'proBundle', 'proPlaylist'] },
           { name: 'PDF and PowerPoint', extensions: ['pdf', 'pptx', 'ppt', 'key', 'odp'] },
           { name: 'Lyrics and HTIMedia', extensions: ['txt', 'htip', 'json'] }
@@ -460,14 +480,38 @@ function registerIpc() {
     }
     return runImport(files.filter(f => typeof f === 'string' && fs.existsSync(f)), {});
   });
-  ipcMain.handle('file:importFolder', async () => {
+  ipcMain.handle('file:importFolder', async (e, kind) => {
     const r = await dialog.showOpenDialog(controlWin, {
-      title: 'Choose a ProPresenter library folder (e.g. Documents/ProPresenter/Libraries)', properties: ['openDirectory']
+      title: kind === 'easyworship' ? 'Choose the EasyWorship folder (the one that contains "Databases")'
+        : kind === 'propresenter' ? 'Choose a ProPresenter library folder (e.g. Documents/ProPresenter/Libraries)'
+          : 'Choose a folder of songs (Word, text, ProPresenter, PDF, PowerPoint...)',
+      properties: ['openDirectory']
     });
     if (r.canceled) return null;
-    const files = listProPresenterFiles(r.filePaths[0]);
-    if (!files.length) return { presentations: [], playlists: [], media: [], warnings: [], errors: ['No ProPresenter files found in that folder.'] };
-    return runImport(files, { skipExisting: true });
+    const dir = r.filePaths[0];
+    if (kind === 'propresenter') {
+      const files = listProPresenterFiles(dir);
+      if (!files.length) return { presentations: [], playlists: [], media: [], warnings: [], errors: ['No ProPresenter files found in that folder.'], snapshot: store.snapshot() };
+      return runImport(files, { skipExisting: true });
+    }
+    if (kind === 'easyworship') {
+      try {
+        const importer = makeImporter();
+        const res = await importer.importEasyWorshipFolder(dir, {});
+        return Object.assign(res, { snapshot: store.snapshot() });
+      } catch (err) {
+        return { presentations: [], playlists: [], media: [], warnings: [], errors: [err.message], snapshot: store.snapshot() };
+      }
+    }
+    return runImport([dir], { skipExisting: true });
+  });
+  ipcMain.handle('file:readSongList', async () => {
+    const r = await dialog.showOpenDialog(controlWin, {
+      title: 'Choose a song list (one title per line)', properties: ['openFile'],
+      filters: [{ name: 'Song lists', extensions: ['txt', 'csv', 'docx'] }]
+    });
+    if (r.canceled) return null;
+    try { return { titles: readSongList(r.filePaths[0]), name: path.basename(r.filePaths[0], path.extname(r.filePaths[0])) }; } catch (err) { return { error: err.message }; }
   });
   ipcMain.handle('app:info', () => ({
     version: app.getVersion(), platform: process.platform, dataDir: store.dataDir, resourcesDir: store.resourcesDir,
@@ -498,7 +542,11 @@ function buildMenu() {
         { label: 'New Playlist', accelerator: 'CmdOrCtrl+Shift+N', click: send('newPlaylist') },
         { type: 'separator' },
         { label: 'Import (ProPresenter, PDF, PowerPoint, Lyrics)...', accelerator: 'CmdOrCtrl+I', click: send('importPresentations') },
-        { label: 'Import ProPresenter Library Folder...', click: send('importFolder') },
+        { label: 'Import Folder of Songs...', click: send('importFolder:songs') },
+        { label: 'Import EasyWorship Library...', click: send('importFolder:easyworship') },
+        { label: 'Import ProPresenter Library Folder...', click: send('importFolder:propresenter') },
+        { label: 'Upload Song List to a Playlist...', click: send('songList') },
+        { label: 'Import Bible File...', click: send('importBible') },
         { label: 'Import Media...', accelerator: 'CmdOrCtrl+Shift+I', click: send('importMedia') },
         { label: 'Export Presentation...', accelerator: 'CmdOrCtrl+E', click: send('exportPresentation') },
         { type: 'separator' },
@@ -548,6 +596,9 @@ app.on('second-instance', () => {
 });
 
 app.whenReady().then(async () => {
+  // Let the font menu list the fonts installed on this computer (nothing else is granted).
+  session.defaultSession.setPermissionRequestHandler((wc, permission, cb) => cb(permission === 'local-fonts'));
+  session.defaultSession.setPermissionCheckHandler((wc, permission) => permission === 'local-fonts');
   store = new Store(app.getPath('userData'));
   bibles = new BibleService(path.join(store.resourcesDir, 'bibles'));
   resources = new ResourceManager({

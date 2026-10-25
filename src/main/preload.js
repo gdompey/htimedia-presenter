@@ -39,7 +39,9 @@ contextBridge.exposeInMainWorld('hti', {
     books: (id) => ipcRenderer.invoke('bible:books', id),
     chapter: (id, b, c) => ipcRenderer.invoke('bible:chapter', id, b, c),
     lookup: (ref, translations) => ipcRenderer.invoke('bible:lookup', ref, translations),
-    search: (id, q) => ipcRenderer.invoke('bible:search', id, q)
+    search: (id, q) => ipcRenderer.invoke('bible:search', id, q),
+    import: (meta) => ipcRenderer.invoke('bible:import', meta),
+    removeImported: (id) => ipcRenderer.invoke('bible:removeImported', id)
   },
   resources: {
     status: () => ipcRenderer.invoke('resources:status'),
@@ -63,7 +65,8 @@ contextBridge.exposeInMainWorld('hti', {
   file: {
     exportPresentation: (p) => ipcRenderer.invoke('file:exportPresentation', p),
     import: (files) => ipcRenderer.invoke('file:import', files ? Array.from(files).map(f => typeof f === 'string' ? f : webUtils.getPathForFile(f)) : null),
-    importFolder: () => ipcRenderer.invoke('file:importFolder'),
+    importFolder: (kind) => ipcRenderer.invoke('file:importFolder', kind),
+    readSongList: () => ipcRenderer.invoke('file:readSongList'),
     onProgress: on('import:progress')
   },
   app: {

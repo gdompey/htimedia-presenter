@@ -4,9 +4,26 @@ const path = require('path');
 const core = require('../../shared/core.js');
 const { importProPresenterAny, EXTENSIONS: PRO_EXTENSIONS } = require('./propresenter.js');
 const { officeToPdf, pptxSlidesText, OFFICE_EXTENSIONS } = require('./slides.js');
+const { readSongFile, SONG_EXTENSIONS } = require('./songfiles.js');
+const { importEasyWorship, findLibraries } = require('./easyworship.js');
 
-const LYRIC_EXTENSIONS = ['.txt', '.htip', '.json'];
-const ALL_EXTENSIONS = [...LYRIC_EXTENSIONS, ...PRO_EXTENSIONS, '.pdf', ...OFFICE_EXTENSIONS];
+const LYRIC_EXTENSIONS = ['.htip', '.json', ...SONG_EXTENSIONS];
+const ALL_EXTENSIONS = [...new Set([...LYRIC_EXTENSIONS, ...PRO_EXTENSIONS, '.pdf', ...OFFICE_EXTENSIONS])];
+
+/** Every importable file under a folder (skips hidden files, Office lock files and EasyWorship databases). */
+function listImportableFiles(dir, depth, out) {
+  const list = out || [];
+  if ((depth || 0) > 6) return list;
+  let entries = [];
+  try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch (e) { return list; }
+  for (const e of entries) {
+    if (e.name.startsWith('.') || e.name.startsWith('~$')) continue;
+    const full = path.join(dir, e.name);
+    if (e.isDirectory()) { if (!/\.proBundle$/i.test(e.name)) listImportableFiles(full, (depth || 0) + 1, list); }
+    else if (ALL_EXTENSIONS.map(x => x.toLowerCase()).includes(lowerExt(full))) list.push(full);
+  }
+  return list;
+}
 
 const lowerExt = (f) => path.extname(f).toLowerCase();
 const isPro = (f) => PRO_EXTENSIONS.map(e => e.toLowerCase()).includes(lowerExt(f));
@@ -69,8 +86,14 @@ class Importer {
     const result = { presentations: [], playlists: [], media: [], warnings: [] };
     this.onProgress({ file, phase: 'start', message: 'Importing ' + path.basename(file) });
 
-    if (ext === '.txt') {
-      result.presentations.push(this.savePresentation(core.presentationFromLyrics(title, fs.readFileSync(file, 'utf8'), { maxLines: opts.maxLines || 0 })));
+    if (SONG_EXTENSIONS.includes(ext)) {
+      const existing = new Set(this.store.all('presentations').filter(p => !p.deletedAt).map(p => p.title.toLowerCase()));
+      const songs = readSongFile(file, { maxLines: opts.maxLines || 0 });
+      if (!songs.length) throw new Error('No song lyrics were found in this file');
+      for (const p of songs) {
+        if (opts.skipExisting && existing.has(p.title.toLowerCase())) { result.warnings.push('Skipped "' + p.title + '" (already in the library)'); continue; }
+        result.presentations.push(this.savePresentation(p));
+      }
     } else if (ext === '.htip' || ext === '.json') {
       const data = JSON.parse(fs.readFileSync(file, 'utf8'));
       const p = data.presentation || data;
@@ -137,8 +160,40 @@ class Importer {
     return result;
   }
 
+  /** Imports the songs of an EasyWorship library folder (2009 or 6/7), skipping titles already here. */
+  async importEasyWorshipFolder(dir, opts) {
+    this.onProgress({ phase: 'start', message: 'Reading the EasyWorship song database...' });
+    const r = await importEasyWorship(dir, opts);
+    const existing = new Set(this.store.all('presentations').filter(p => !p.deletedAt).map(p => p.title.toLowerCase()));
+    const result = { presentations: [], playlists: [], media: [], warnings: [], errors: [], easyworship: r.report };
+    let skipped = 0;
+    r.presentations.forEach((p, i) => {
+      if (existing.has(p.title.toLowerCase())) { skipped++; return; }
+      if (i % 25 === 0) this.onProgress({ phase: 'pages', done: i, total: r.presentations.length, message: 'Importing EasyWorship songs (' + i + '/' + r.presentations.length + ')' });
+      result.presentations.push(this.savePresentation(p));
+    });
+    const rep = r.report;
+    result.warnings.push('EasyWorship ' + (rep.kind === 'ew6' ? '6/7' : '2009') + ' library: ' + rep.found + ' songs found' + (rep.declared ? ' of ' + rep.declared + ' listed in the database' : '') + ', ' + rep.withLyrics + ' with lyrics.');
+    if (skipped) result.warnings.push(skipped + ' songs were already in the library and were left unchanged.');
+    if (rep.declared && rep.found < rep.declared * 0.9) result.warnings.push('Some of this database could not be read (the files look damaged or incomplete). Copy the EasyWorship "Databases" folder again from the church computer and import it once more; songs already imported are skipped.');
+    this.onProgress({ phase: 'finished' });
+    return result;
+  }
+
   async importFiles(files, opts) {
+    // A dropped folder: an EasyWorship library imports as a library; anything else imports its files.
+    const expanded = [];
+    const ewResults = [];
+    for (const f of files) {
+      let isDir = false;
+      try { isDir = fs.statSync(f).isDirectory(); } catch (e) { /* missing */ }
+      if (!isDir) { expanded.push(f); continue; }
+      if (findLibraries(f).length) { ewResults.push(await this.importEasyWorshipFolder(f, opts)); continue; }
+      expanded.push(...listImportableFiles(f));
+    }
+    files = expanded;
     const total = { presentations: [], playlists: [], media: [], warnings: [], errors: [] };
+    for (const r of ewResults) { total.presentations.push(...r.presentations); total.warnings.push(...r.warnings); total.easyworship = r.easyworship; }
     for (let i = 0; i < files.length; i++) {
       const f = files[i];
       this.onProgress({ file: f, phase: 'file', index: i, count: files.length, message: 'Importing ' + (i + 1) + ' of ' + files.length + ': ' + path.basename(f) });
@@ -157,4 +212,4 @@ class Importer {
   }
 }
 
-module.exports = { Importer, listProPresenterFiles, ALL_EXTENSIONS };
+module.exports = { Importer, listProPresenterFiles, listImportableFiles, ALL_EXTENSIONS };

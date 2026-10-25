@@ -28,15 +28,21 @@ On first launch the app connects to this repository's
 [`resources` release](https://github.com/gdompey/htimedia-presenter/releases/tag/resources), downloads the
 resource packs, checks each one's SHA-256, and stores them on the computer. After that, nothing needs the internet.
 
-| Pack | Contents | Default |
+| Pack | Contents | Downloaded automatically |
 |---|---|---|
-| KJV Bible | King James Version (1769) | yes (also bundled in the installer) |
-| ASV Bible | American Standard Version (1901) | yes |
-| BBE Bible | Bible in Basic English | optional |
-| YLT Bible | Young's Literal Translation (1898) | optional |
+| English Bibles | KJV (also bundled), ASV, World English Bible (WEB), Berean Standard Bible (BSB) | yes |
+| More English Bibles | WEB British Edition, Majority Standard, Darby, Geneva 1599, Webster, Douay-Rheims, BBE, YLT | optional |
+| Ghanaian Bibles | Akuapem Twi, Asante Twi and Ewe (contemporary translations) | yes |
+| Ghanaian New Testaments | Konkomba, Chumburung, Nkonya | optional |
 | Core Themes | Worship, scripture, sermon, lower-third and announcement themes | yes (bundled) |
 | Core Backgrounds | 12 still and motion backgrounds | yes (bundled) |
 | Classic Hymns | 12 public-domain hymns | yes (bundled) |
+
+Every Bible here may be shared freely: the English ones are public domain; the Twi and Ewe Bibles are © Biblica, Inc.
+under CC BY-SA 4.0 (original work at biblica.com and open.bible); the Konkomba, Chumburung and Nkonya New Testaments are
+© Wycliffe Bible Translators under CC BY-NC-ND with permission to change the file format. Modern copyrighted versions
+(NIV, NKJV, ESV, NLT, AMP) and the Bible Society of Ghana's Ga, Fante, Dagbani and Dangme Bibles cannot be published
+here; a church that owns them can add them on its own computers with **Bible → + Bibles → Import a Bible file**.
 
 If the first launch is offline, the bundled starter set (KJV, themes, backgrounds, hymns) is installed, and the
 rest downloads the next time the app is online. **Resources** in the toolbar adds, updates or removes packs.
@@ -57,8 +63,16 @@ Installed packs update automatically when a new version is published. You can tu
 - **Messages:** lower thirds with fill-in fields, e.g. `Parent of {child}, please come to the nursery`.
 - **Clear layers:** Clear All, Slide, Media, Props, Messages, Audio and Logo (F1–F7).
 - **Media bin:** drag in images, videos and audio. Set backgrounds per presentation, per slide or per theme.
+- **Text size and fonts:** A− / A+ for each song, for the whole live screen, for scripture and for the stage screen.
+  25 bundled open-licence fonts (sans, serif, display and script, all with a fallback that shows Ghanaian letters such as
+  ɛ and ɔ), the computer's own fonts, or any font name you type.
 - **Themes:** font, size, colours, alignment, text box position, shadow, outline, text backing (lower thirds) and background.
 - **Phone remote:** any phone or tablet on the same Wi-Fi network can step slides and clear layers. It is PIN-protected and off by default.
+- **Import from EasyWorship:** EasyWorship 2009 and 6/7 song libraries, including Twi songs typed with Twi fonts
+  (their letters are converted to real ɛ and ɔ). Songs already in the library are skipped, so you can import again safely.
+- **Upload songs and song lists while you work:** Word (.docx), text (several songs per file), RTF, ChordPro,
+  OpenLyrics, CCLI SongSelect and CSV files, or a whole folder. Paste or load a song list and it becomes a playlist,
+  with titles matched to your library and placeholders for anything missing.
 - **Import from ProPresenter:** songs from ProPresenter 4, 5, 6 and 7 (`.pro4`, `.pro5`, `.pro6`, `.pro`), with groups,
   arrangements, slide notes and CCLI details. `.proPlaylist` files come in as playlists. You can also import a whole
   ProPresenter library folder at once.
@@ -71,6 +85,11 @@ Installed packs update automatically when a new version is published. You can tu
 - **Safe by design:** deleted songs go to *Recently Deleted*, and removed media goes to a `Removed Media` folder.
 
 See the **[User Guide](docs/USER-GUIDE.md)** for how to run a service.
+
+## Updating an installed copy
+
+See **[docs/UPDATING.md](docs/UPDATING.md)**. In short: install the new version over the old one; your songs, playlists,
+settings and downloaded Bibles are kept.
 
 ## Develop
 

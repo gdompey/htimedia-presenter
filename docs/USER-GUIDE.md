@@ -54,6 +54,19 @@ notes from PowerPoint appear on the stage screen's Speaker layout, and the page 
 PowerPoint and Keynote files need one of these installed to convert them: **LibreOffice** (free, recommended),
 Microsoft PowerPoint, or Keynote (Mac). Without any of them, the slide text is imported instead of the slide pictures.
 
+### Upload songs and song lists
+
+- **Import → Import song files...** takes Word (.docx), text, RTF, ChordPro, OpenLyrics (.xml), CCLI SongSelect (.usr or
+  .txt) and CSV files (columns *Title* and *Lyrics*). One text or Word file can hold many songs: start each with a line
+  `Title: Song name`, or separate songs with a line of `---`.
+- **Import → Import a folder of songs...** imports every song file in a folder (and its subfolders). Songs already in
+  the library are skipped.
+- **Import → Import EasyWorship library...**: choose the EasyWorship folder that contains *Databases* (on the church PC
+  usually `C:\Users\Public\Documents\Softouch\EasyWorship`). Works for EasyWorship 2009 and 6/7. Twi songs typed
+  with Twi fonts are converted to real ɛ and ɔ.
+- **Playlists → Song list** (or **File → Upload Song List to a Playlist**): paste the worship leader's list, or load a
+  .txt, .csv or Word file. Each title is matched to the library; anything missing becomes a placeholder.
+
 ## 4. Build the service (playlist)
 
 1. Open **Playlists**. Use **+ New**, or click **Use** next to *Sunday Service Template*.
@@ -83,6 +96,11 @@ During the service, the arrow keys move through slides. At the end of a song, **
 
 Switch the mode to **Search** to find verses by words.
 
+**Bibles available:** KJV, ASV, WEB, BSB, Akuapem Twi, Asante Twi and Ewe download automatically. Open **Resources** for
+more English versions and the Konkomba, Chumburung and Nkonya New Testaments. Copyrighted Bibles your church owns (for
+example Ga or Fante from the Bible Society of Ghana, or NIV) can be added with **+ Bibles → Import a Bible file**
+(Zefania XML, OSIS, USFX, VPL text or JSON). Type references in English (*John 3:16*) for every language.
+
 ## 7. Media, backgrounds and audio
 
 - Drag images and videos into the Media bin, or click **Import...**.
@@ -110,19 +128,29 @@ Switch the mode to **Search** to find verses by words.
 In the right panel, open **Stage** to choose a layout (Current & Next, Lyrics Large, Speaker, Clock & Timer) and
 to send a **stage message** that only the people on stage can see.
 
-## 10. Themes
+## 10. Text size and fonts
+
+- **For one song:** above its slides, use **A− / A+** (the middle button resets to 100%) and pick a font from the font
+  menu; *Theme font* uses the theme's font.
+- **For everything on the screen:** **Live text size** in the right panel. It changes the audience screen straight away.
+- **Scripture:** **A− / A+** next to the reference box in Bible.
+- **Stage screen:** **Stage** tab → **Stage text size**.
+- The font menu lists 25 bundled fonts (they work on every computer, even offline), common system fonts, **Show fonts
+  installed on this computer**, and **Other font...** to type any font name.
+
+## 11. Themes
 
 Click **Themes** in the toolbar to change the font, size, colours, alignment, text box position, shadow, outline and
 background, with a live preview. Choose a theme per presentation from the menu above the slides, and set the defaults
 in **Settings → General**.
 
-## 11. Phone remote
+## 12. Phone remote
 
 1. Open **Settings → Remote**, set a PIN, and tick **Enable remote control**.
 2. On a phone connected to the same Wi-Fi, open the address shown, for example `http://192.168.1.20:4316`.
 3. Enter the PIN. You can step slides, tap any slide to jump to it, and clear the screens.
 
-## 12. Backups and moving computers
+## 13. Backups and moving computers
 
 Everything is stored locally. **Settings → Library** shows the library folder: copy it to back up, or point
 the app at a shared folder. Deleted songs go to **Recently Deleted** at the bottom of the Library, and removed media

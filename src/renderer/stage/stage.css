@@ -7,19 +7,19 @@ header { display: flex; align-items: center; justify-content: space-between; gap
 #timer.over { color: #ff6b6b; }
 #timer.warn { color: #ffd43b; }
 #title { flex: 1; text-align: center; font-size: 2.6vh; opacity: .65; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#stage-message { display: none; background: #c92a2a; color: #fff; font-size: 5vh; font-weight: 700; text-align: center; padding: 1.2vh 2vw; border-radius: 1vh; }
+#stage-message { display: none; background: #c92a2a; color: #fff; font-size: calc(5vh * var(--k, 1)); font-weight: 700; text-align: center; padding: 1.2vh 2vw; border-radius: 1vh; }
 #stage-message.show { display: block; animation: pulse 1.6s ease-in-out infinite; }
 @keyframes pulse { 50% { background: #8f1d1d; } }
 section { display: flex; flex-direction: column; min-height: 0; }
 .label { font-size: 2vh; letter-spacing: .25em; opacity: .55; margin-bottom: .6vh; }
 .label span { letter-spacing: .05em; margin-left: 1vw; padding: .2vh .8vw; border-radius: .5vh; opacity: 1; color: #fff; }
 #current-wrap { flex: 3; }
-#current { flex: 1; font-size: 7vh; font-weight: 700; line-height: 1.18; white-space: pre-wrap; overflow: hidden; }
+#current { flex: 1; font-size: calc(7vh * var(--k, 1)); font-weight: 700; line-height: 1.18; white-space: pre-wrap; overflow: hidden; }
 #next-wrap { flex: 1.4; border-top: 2px solid #333; padding-top: 1vh; }
-#next { font-size: 4.2vh; color: #adb5bd; line-height: 1.2; white-space: pre-wrap; overflow: hidden; }
+#next { font-size: calc(4.2vh * var(--k, 1)); color: #adb5bd; line-height: 1.2; white-space: pre-wrap; overflow: hidden; }
 #notes-wrap { flex: 1.2; border-top: 2px solid #333; padding-top: 1vh; }
-#notes { font-size: 3.6vh; color: #ffd43b; white-space: pre-wrap; overflow: hidden; }
+#notes { font-size: calc(3.6vh * var(--k, 1)); color: #ffd43b; white-space: pre-wrap; overflow: hidden; }
 .hidden { display: none !important; }
-#stage.lyrics-only #current { font-size: 10vh; }
+#stage.lyrics-only #current { font-size: calc(10vh * var(--k, 1)); }
 #stage.clock-only #clock, #stage.clock-only #timer { font-size: 20vh; text-align: center; min-width: 0; }
 #stage.clock-only header { flex-direction: column; flex: 1; justify-content: center; }

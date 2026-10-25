@@ -38,11 +38,17 @@ test('first-run sync pulls default packs and makes them usable', { skip: !built 
   const r = await rm.sync({ firstRun: true });
   assert.strictEqual(r.online, true);
   const installed = store.settings.resources.installed;
-  assert.ok(installed['bible-kjv'] && installed['bible-asv'] && installed['themes-core'] && installed['songs-hymns'] && installed['backgrounds-core']);
+  assert.ok(installed['bible-kjv'] && installed['bible-asv'] && installed['bible-astw'] && installed['themes-core'] && installed['songs-hymns'] && installed['backgrounds-core']);
   assert.ok(!installed['bible-bbe'], 'optional packs are not pulled automatically');
   assert.ok(progress.some(p => p.phase === 'done'));
   const bibles = new BibleService(path.join(store.resourcesDir, 'bibles'));
-  assert.deepStrictEqual(bibles.list().map(b => b.id), ['KJV', 'ASV']);
+  const ids = bibles.list().map(b => b.id);
+  for (const id of ['KJV', 'ASV', 'WEB', 'BSB', 'AKTW', 'ASTW', 'EWE']) assert.ok(ids.includes(id), id + ' installed by default');
+  assert.ok(!ids.includes('BBE'), 'optional Bibles are not pulled automatically');
+  assert.strictEqual(ids[0], 'KJV');
+  const twi = bibles.lookup('John 3:16', ['ASTW']);
+  assert.match(twi.passages[0].verses[0].text, /Onyankopɔn/);
+  assert.match(bibles.list().find(b => b.id === 'ASTW').copyright, /Biblica/);
   const john = bibles.lookup('John 3:16', ['KJV', 'ASV']);
   assert.strictEqual(john.passages.length, 2);
   assert.match(john.passages[0].verses[0].text, /^For God so loved the world/);
@@ -79,4 +85,16 @@ test('user-edited songs are not overwritten by a pack update', { skip: !built &&
   store.updateSettings({ resources: { installed: { 'songs-hymns': { version: 0, type: 'songs' } } } });
   await rm.sync({ firstRun: false });
   assert.strictEqual(store.get('presentations', 'song_amazing_grace').title, 'Amazing Grace (our key)');
+});
+
+test('an update installs new default packs once, and never re-adds a removed one', { skip: !built && 'build packs first' }, async () => {
+  const { store, rm } = setup();
+  // Simulate a 1.1 install: KJV, themes and songs only, nothing recorded as seen.
+  rm.installBundled();
+  store.updateSettings({ resources: { firstRunDone: true } });
+  await rm.sync({ firstRun: false });
+  assert.ok(store.settings.resources.installed['bible-astw'], 'new default Bible arrives on update');
+  rm.remove('bible-astw');
+  await rm.sync({ firstRun: false });
+  assert.ok(!store.settings.resources.installed['bible-astw'], 'a removed pack stays removed');
 });

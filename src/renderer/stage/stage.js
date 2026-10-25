@@ -19,6 +19,7 @@
   }
 
   function render() {
+    document.documentElement.style.setProperty('--k', String(settings.stageTextScale || 1));
     const l = layout().show;
     const root = $('stage');
     root.classList.toggle('clock-only', !l.current && !l.next && !l.notes);

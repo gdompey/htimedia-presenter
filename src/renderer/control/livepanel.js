@@ -25,6 +25,11 @@
     document.getElementById('btn-logo').classList.toggle('on', !!s.logo);
   };
 
+  App.renderers.textsize = function () {
+    const row = document.getElementById('textsize-row');
+    row.replaceChildren(h('label', {}, 'Live text size'), App.sizeControl('output', App.db.settings.outputTextScale || 1, 'Text size on the audience screen (all slides)'));
+  };
+
   App.renderers.transition = function () {
     const t = App.db.settings.transition || { type: 'fade', duration: 0.5 };
     document.getElementById('transition-type').value = t.type;
@@ -116,6 +121,8 @@
     const msg = h('textarea', { rows: 2, placeholder: 'Message to the stage only, e.g. "Wrap up in 5 minutes"', value: App.liveState.stageMessage || '' });
     body.append(
       h('div', { class: 'field' }, h('label', {}, 'Stage layout'), h('div', { class: 'row' }, sel)),
+      h('div', { class: 'field', style: { marginTop: '10px' } }, h('label', {}, 'Stage text size'), h('div', { class: 'row' }, App.sizeControl('stage', App.db.settings.stageTextScale || 1, 'Text size on the stage screen')))
+      ,
       h('div', { class: 'field', style: { marginTop: '10px' } }, h('label', {}, 'Stage message'), msg,
         h('div', { class: 'row' },
           h('button', { class: 'primary', onclick: () => window.hti.live.update({ stageMessage: msg.value.trim() }) }, 'Send to stage'),

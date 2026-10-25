@@ -1,0 +1,26 @@
+Bundled fonts (SIL Open Font License 1.1 unless noted) - https://fontsource.org
+Open Sans: OFL-1.1
+Roboto: OFL-1.1
+Lato: OFL-1.1
+Montserrat: OFL-1.1
+Poppins: OFL-1.1
+Raleway: OFL-1.1
+Nunito: OFL-1.1
+Source Sans 3: OFL-1.1
+Noto Sans: OFL-1.1
+Work Sans: OFL-1.1
+Josefin Sans: OFL-1.1
+Ubuntu: UFL-1.0
+Oswald: OFL-1.1
+Bebas Neue: OFL-1.1
+Anton: OFL-1.1
+Archivo Black: OFL-1.1
+Cinzel: OFL-1.1
+Noto Serif: OFL-1.1
+Merriweather: OFL-1.1
+Playfair Display: OFL-1.1
+Lora: OFL-1.1
+Great Vibes: OFL-1.1
+Dancing Script: OFL-1.1
+Pacifico: OFL-1.1
+Caveat: OFL-1.1

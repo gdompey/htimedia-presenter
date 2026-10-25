@@ -50,18 +50,22 @@
 
   let importUi = null;
 
-  /** files: File objects or paths (drag and drop); null opens the file picker. folder=true imports a whole ProPresenter library. */
+  /** files: File objects or paths (drag and drop); null opens the file picker.
+   *  folder: 'songs' | 'easyworship' | 'propresenter' picks a folder instead. */
   async function importFiles(files, folder) {
+    if (folder === true) folder = 'propresenter';
     const status = h('div', {}, 'Choose what to import...');
     const bar = h('div', { class: 'progress', style: { width: '100%' } }, h('div'));
     importUi = { status, bar };
     const m = App.modal({
-      title: folder ? 'Import ProPresenter library' : 'Import',
-      body: [h('div', { class: 'muted' }, 'Supported: ProPresenter 4-7 songs (.pro, .pro6, .pro5, .pro4), playlists (.proPlaylist), bundles (.proBundle), PDF, PowerPoint (.pptx, .ppt), Keynote, plain-text lyrics and .htip files.'), status, bar],
+      title: { easyworship: 'Import EasyWorship library', propresenter: 'Import ProPresenter library', songs: 'Import a folder of songs' }[folder] || 'Import',
+      body: [h('div', { class: 'muted' }, folder === 'easyworship'
+        ? 'Choose the EasyWorship folder that contains "Databases" (on the church PC: C:\\Users\\Public\\Documents\\Softouch\\EasyWorship). EasyWorship 2009 and 6/7 are supported; songs already in your library are skipped.'
+        : 'Supported: song files (Word .docx, .txt, .rtf, ChordPro, OpenLyrics .xml, CCLI SongSelect .usr/.txt, CSV with Title and Lyrics columns), ProPresenter 4-7 (.pro, .pro6, .proPlaylist, .proBundle), PDF, PowerPoint, Keynote and .htip files. A .txt or Word file can hold several songs.'), status, bar],
       actions: [{ label: 'Close' }],
       onClose: () => { importUi = null; }
     });
-    const r = folder ? await window.hti.file.importFolder() : await window.hti.file.import(files);
+    const r = folder ? await window.hti.file.importFolder(folder) : await window.hti.file.import(files);
     if (!r) { m.close(); return; }
     App.db = r.snapshot;
     bar.firstChild.style.width = '100%';
@@ -79,6 +83,87 @@
     App.render();
     if (r.presentations.length === 1 && !r.errors.length && !r.warnings.some(w => /text only/.test(w)) && !r.playlists.length) m.close();
     App.toast(r.presentations.length + ' imported' + (r.errors.length ? ', ' + r.errors.length + ' failed' : ''), r.errors.length && !r.presentations.length ? 'error' : '');
+  }
+
+  // ---------- Song list -> playlist ----------
+
+  const normTitle = (t) => String(t || '').toLowerCase().replace(/\([^)]*\)|\[[^\]]*\]/g, ' ').replace(/[^a-z0-9\u0254\u025b ]+/g, ' ').replace(/\s+/g, ' ').trim();
+
+  /** Best library match for a title, or null. */
+  function matchSong(title, songs) {
+    const n = normTitle(title);
+    if (!n) return null;
+    let best = null, score = 0;
+    const words = new Set(n.split(' '));
+    for (const p of songs) {
+      const m = normTitle(p.title);
+      let s = 0;
+      if (m === n) s = 1;
+      else if (m.startsWith(n) || n.startsWith(m)) s = 0.9;
+      else {
+        const mw = new Set(m.split(' '));
+        const inter = [...words].filter(w => mw.has(w)).length;
+        s = inter / Math.max(words.size, mw.size);
+      }
+      if (s > score) { score = s; best = p; }
+    }
+    return score >= 0.6 ? best : null;
+  }
+
+  function songList(initialTitles, initialName) {
+    const songs = App.coll('presentations').filter(p => !p.deletedAt);
+    const name = h('input', { value: initialName || 'Service ' + new Date().toLocaleDateString(), class: 'grow' });
+    const text = h('textarea', { rows: 10, placeholder: 'Paste the song list here, one title per line.\n\nGreat Is Thy Faithfulness\nImela\nBlessed Assurance' });
+    if (initialTitles) text.value = initialTitles.join('\n');
+    const preview = h('div', { class: 'theme-list', style: { maxHeight: '240px' } });
+    const draw = () => {
+      const titles = text.value.split('\n').map(l => l.replace(/^\s*(\d+[.)]|[-*\u2022])\s*/, '').trim()).filter(Boolean);
+      preview.replaceChildren(...titles.map(t => {
+        const m = matchSong(t, songs);
+        return h('div', { class: 'list-item' }, h('span', { class: 'title' }, t), h('span', { class: 'kind', style: { color: m ? 'var(--ok)' : 'var(--accent)' } }, m ? '\u2713 ' + m.title : 'not in library: placeholder'));
+      }));
+      return titles;
+    };
+    text.addEventListener('input', draw);
+    draw();
+    App.modal({
+      title: 'Upload song list', wide: true,
+      body: [
+        h('div', { class: 'muted' }, 'Turn a song list from the worship leader into a playlist. Each title is matched to your library; titles that are not found become placeholders you can fill later (or import their lyrics first).'),
+        h('div', { class: 'row' }, h('label', {}, 'Playlist name'), name,
+          h('button', { onclick: async () => {
+            const r = await window.hti.file.readSongList();
+            if (!r) return;
+            if (r.error) return App.toast(r.error, 'error');
+            text.value = r.titles.join('\n');
+            if (!initialName) name.value = r.name;
+            draw();
+          } }, 'Load from file (.txt, .csv, .docx)...')),
+        text, preview],
+      actions: [{ label: 'Cancel' }, { label: 'Create playlist', primary: true, onClick: async () => {
+        const titles = draw();
+        if (!titles.length) { App.toast('Add at least one song title', 'error'); return false; }
+        const items = titles.map(t => {
+          const m = matchSong(t, songs);
+          return m ? { id: core.uid('i'), type: 'presentation', refId: m.id } : { id: core.uid('i'), type: 'placeholder', label: t };
+        });
+        const pl = await App.save('playlists', { id: core.uid('pl'), name: name.value.trim() || 'Song list', items, createdAt: new Date().toISOString() });
+        App.ui.side = 'playlists'; App.ui.playlistId = pl.id; App.render('sidebar');
+        const missing = items.filter(i => i.type === 'placeholder').length;
+        App.toast('Playlist created' + (missing ? ' (' + missing + ' placeholder' + (missing > 1 ? 's' : '') + ' to fill)' : ''));
+      } }]
+    });
+  }
+
+  function importMenu(e) {
+    App.contextMenu(e, [
+      { label: 'Import song files...', onClick: () => importFiles() },
+      { label: 'Import a folder of songs...', onClick: () => importFiles(null, 'songs') },
+      { label: 'Import EasyWorship library...', onClick: () => importFiles(null, 'easyworship') },
+      { label: 'Import ProPresenter library...', onClick: () => importFiles(null, 'propresenter') },
+      '-',
+      { label: 'Upload song list to a playlist...', onClick: () => songList() }
+    ]);
   }
 
   function importProgress(p) {
@@ -353,25 +438,14 @@
       const bgMedia = h('select', {}, h('option', { value: '' }, 'None'), App.coll('media').filter(m => m.type !== 'audio').map(m => h('option', { value: m.id }, m.name)));
       bgMedia.value = t.backgroundMediaId || '';
       bgMedia.addEventListener('change', () => { current.backgroundMediaId = bgMedia.value || null; drawPreview(); save(); });
-      const fonts = [
-        ['"Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif', 'Sans (System)'],
-        ['"Montserrat", "Segoe UI", "Helvetica Neue", Arial, sans-serif', 'Montserrat / Sans'],
-        ['"Arial Black", "Helvetica Neue", Arial, sans-serif', 'Arial Black'],
-        ['Impact, "Arial Narrow Bold", sans-serif', 'Impact'],
-        ['Georgia, "Times New Roman", serif', 'Georgia (Serif)'],
-        ['"Palatino Linotype", Palatino, "Book Antiqua", serif', 'Palatino'],
-        ['"Trebuchet MS", "Lucida Grande", sans-serif', 'Trebuchet'],
-        ['Verdana, Geneva, sans-serif', 'Verdana'],
-        ['"Gill Sans", "Gill Sans MT", Calibri, sans-serif', 'Gill Sans / Calibri']
-      ];
-      if (!fonts.some(f => f[0] === t.fontFamily)) fonts.push([t.fontFamily, 'Custom']);
+      const fontSel = App.fontSelect(core.fontNameFromStack(t.fontFamily), (name) => { current.fontFamily = core.fontStack(name); drawPreview(); save(); drawForm(); });
       form.replaceChildren(
         h('div', { class: 'row' }, inp('name', { class: 'grow' }),
           h('button', { onclick: async () => { const c = JSON.parse(JSON.stringify(current)); c.id = core.uid('theme'); c.name = current.name + ' copy'; delete c.builtIn; delete c.origin; delete c.packId; current = await App.save('themes', c); drawList(); drawForm(); } }, 'Duplicate'),
           !current.builtIn ? h('button', { class: 'danger', onclick: async () => { await App.remove('themes', current.id); current = App.coll('themes')[0]; drawList(); drawForm(); } }, 'Delete') : null),
         preview,
         h('div', { class: 'field-grid' },
-          h('div', { class: 'field' }, h('label', {}, 'Font'), sel('fontFamily', fonts)),
+          h('div', { class: 'field' }, h('label', {}, 'Font'), fontSel),
           h('div', { class: 'field' }, h('label', {}, 'Max size (px)'), inp('fontSize', { type: 'number', min: 20, max: 300 }, Number)),
           h('div', { class: 'field' }, h('label', {}, 'Weight'), sel('fontWeight', [[400, 'Regular'], [600, 'Semibold'], [700, 'Bold'], [900, 'Black']])),
           h('div', { class: 'field' }, h('label', {}, 'Text colour'), inp('color', { type: 'color' })),
@@ -414,5 +488,5 @@
     App.modal({ title: 'Keyboard Shortcuts', body: h('table', { class: 'kbd-table' }, rows.map(([k, d]) => h('tr', {}, h('td', {}, h('kbd', {}, k)), h('td', {}, d)))) });
   }
 
-  App.dialogs = { importFiles, importProgress, newPresentation, newPlaylist, resources, settings, themes, shortcuts, welcomeStart, welcomeProgress, welcomeDone, refreshBadge, progressHandlers };
+  App.dialogs = { importFiles, importProgress, songList, importMenu, matchSong, newPresentation, newPlaylist, resources, settings, themes, shortcuts, welcomeStart, welcomeProgress, welcomeDone, refreshBadge, progressHandlers };
 })();

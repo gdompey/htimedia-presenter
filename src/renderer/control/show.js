@@ -71,6 +71,8 @@
       isScratch ? h('span', { class: 'chip ghost' }, 'Not saved') : null,
       arrangementSelect(p),
       themeSelect(p),
+      App.fontSelect(p.fontFamily || '', async (name) => { p.fontFamily = name || null; await App.savePresentation(p); App.render('center'); App.refreshLive(); }, { emptyLabel: 'Theme font' }),
+      App.sizeControl('presentation', p.fontScale || 1, 'Text size for this presentation'),
       backgroundSelect(p),
       h('div', { class: 'spacer' }),
       isScratch ? h('button', { onclick: async () => { await App.keepScratch(); App.render(); App.toast('Saved to Library'); } }, 'Save to Library') : null,

@@ -5,12 +5,13 @@
       "id": "bible-kjv",
       "type": "bible",
       "name": "King James Version (1769)",
+      "language": "English",
       "version": 1,
       "default": true,
       "description": "English · public domain",
       "file": "bible-kjv-v1.json.gz",
-      "size": 1213838,
-      "sha256": "132f5fd133ff292daa1aa014141f427b09a363f942c729fd2e75f14338c35910"
+      "size": 1213859,
+      "sha256": "4ce598efaa7f8a45f279e94e2308c51290eaf4bfce11b4104282396fd8f80e9c"
     },
     {
       "id": "themes-core",
@@ -42,8 +43,8 @@
       "default": true,
       "description": "12 public-domain hymns, ready to present",
       "file": "songs-hymns-v1.json.gz",
-      "size": 5645,
-      "sha256": "a28293ade3e38f51ef52393016b1c616c2860203b3b6e970c8a91c7253885435"
+      "size": 5655,
+      "sha256": "2bbd1641eff77e16d64efda02ba76528720e30e1cf95936ce865867215af57c9"
     }
   ]
 }

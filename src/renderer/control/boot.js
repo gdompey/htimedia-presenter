@@ -104,7 +104,9 @@
     else if (cmd === 'newPlaylist') App.dialogs.newPlaylist();
     else if (cmd === 'importMedia') App.media.importDialog();
     else if (cmd === 'importPresentations') App.dialogs.importFiles();
-    else if (cmd === 'importFolder') App.dialogs.importFiles(null, true);
+    else if (cmd.startsWith('importFolder:')) App.dialogs.importFiles(null, cmd.slice(13));
+    else if (cmd === 'songList') App.dialogs.songList();
+    else if (cmd === 'importBible') App.bible.importBible();
     else if (cmd === 'exportPresentation') {
       const p = App.show.currentPresentation();
       if (p) hti.file.exportPresentation(p); else App.toast('Open a presentation first', 'error');

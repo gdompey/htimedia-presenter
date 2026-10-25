@@ -19,6 +19,17 @@ If a pack's `version` changes, installed copies update on the next launch (unles
 | `media` | `{files:[{name, file, type, tags, data(base64)}]}` | `Resources/media/<pack-id>/` + media bin |
 | `songs` | `{presentations:[presentation...]}` | library (added only if missing; user edits are never overwritten) |
 
+## Licences of the Bible packs
+
+| Packs | Licence | Source |
+|---|---|---|
+| KJV, ASV, BBE, YLT | Public domain | scrollmapper/bible_databases |
+| WEB, WEBBE, BSB, MSB, Darby, Geneva 1599, Webster, Douay-Rheims | Public domain | eBible.org |
+| Akuapem Twi, Asante Twi, Ewe | © Biblica, Inc., CC BY-SA 4.0 (attribution shown in the app; Biblica trademarks not used) | eBible.org |
+| Konkomba, Chumburung, Nkonya (NT) | © Wycliffe Bible Translators, CC BY-NC-ND 3.0 with explicit permission to change file format; text unchanged, free distribution only | eBible.org |
+
+Wycliffe translations marked "All rights reserved" on eBible.org (Bimoba, Buli, Anufo, Siwu and others) are not included.
+
 ## Publishing an update
 
 ```bash

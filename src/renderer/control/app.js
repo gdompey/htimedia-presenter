@@ -157,7 +157,11 @@
     let id = p && p.themeId;
     if (!id && p && p.kind === 'scripture') id = s.scriptureThemeId || (App.get('themes', 'theme_scripture') ? 'theme_scripture' : null);
     if (!id) id = s.defaultThemeId;
-    return core.resolveTheme(App.get('themes', id) || App.get('themes', 'theme_default'));
+    const base = core.resolveTheme(App.get('themes', id) || App.get('themes', 'theme_default'));
+    let scale = (p && p.fontScale) || 1;
+    if (p && p.kind === 'scripture') scale *= s.scriptureTextScale || 1;
+    if (p && p.fontFamily) base.fontFamily = core.fontStack(p.fontFamily);
+    return core.scaleTheme(base, scale);
   };
 
   /** Background that belongs to a slide: slide media > presentation background > theme background. */
@@ -196,7 +200,7 @@
   function slidePayload(p, flat, index) {
     const item = flat[index];
     if (!item) return null;
-    const theme = App.themeFor(p);
+    const theme = core.scaleTheme(App.themeFor(p), App.db.settings.outputTextScale || 1);
     const bg = App.slideBackground(p, item.slide, theme);
     return {
       presentationId: p.id,
@@ -378,6 +382,78 @@
       window.hti.live.update({ prop: { id: prop.id, text: prop.text || '', url: m ? App.mediaUrl(m.id) : null, type: m ? m.type : null } });
     }
     App.render('bin');
+  };
+
+  /** Text size: one of 'presentation' (the open song), 'output' (everything live), 'scripture', 'stage'. */
+  App.changeTextSize = async function (target, delta, absolute) {
+    const clamp = (v) => Math.round(Math.max(0.5, Math.min(2.5, v)) * 100) / 100;
+    if (target === 'presentation') {
+      const p = App.show.currentPresentation();
+      if (!p) return;
+      p.fontScale = clamp(absolute != null ? absolute : (p.fontScale || 1) + delta);
+      await App.savePresentation(p);
+      App.render('center');
+    } else {
+      const key = { output: 'outputTextScale', scripture: 'scriptureTextScale', stage: 'stageTextScale' }[target];
+      await App.saveSettings({ [key]: clamp(absolute != null ? absolute : (App.db.settings[key] || 1) + delta) });
+      App.render('textsize', 'center', 'panel');
+    }
+    App.refreshLive();
+  };
+
+  /** A <select> of every font: bundled, common system fonts, fonts installed on this computer. */
+  App.installedFonts = null;
+  App.loadInstalledFonts = async function () {
+    if (App.installedFonts) return App.installedFonts;
+    App.installedFonts = [];
+    try {
+      if (window.queryLocalFonts) {
+        const fonts = await window.queryLocalFonts();
+        App.installedFonts = Array.from(new Set(fonts.map(f => f.family))).sort();
+      }
+    } catch (e) { /* permission refused or unsupported: bundled fonts still work */ }
+    return App.installedFonts;
+  };
+  App.fontSelect = function (current, onChange, opts) {
+    const h = App.h;
+    const o = opts || {};
+    const groups = {};
+    for (const f of core.FONTS.concat(core.SYSTEM_FONTS)) (groups[f.group] = groups[f.group] || []).push(f.family);
+    const sel = h('select', { title: 'Font', class: 'font-select' },
+      o.emptyLabel ? h('option', { value: '' }, o.emptyLabel) : null,
+      Object.entries(groups).map(([g, list]) => h('optgroup', { label: g }, list.map(n => h('option', { value: n, style: { fontFamily: core.fontStack(n) } }, n)))),
+      App.installedFonts && App.installedFonts.length ? h('optgroup', { label: 'Installed on this computer' }, App.installedFonts.map(n => h('option', { value: n }, n))) : null,
+      h('option', { value: '__custom' }, 'Other font (type its name)...'),
+      App.installedFonts ? null : h('option', { value: '__more' }, 'Show fonts installed on this computer...'));
+    const known = Array.from(sel.options).some(op => op.value === current);
+    if (current && !known) sel.insertBefore(h('option', { value: current }, current), sel.firstChild);
+    sel.value = current || (o.emptyLabel ? '' : 'System Sans');
+    sel.addEventListener('change', async () => {
+      if (sel.value === '__more') {
+        await App.loadInstalledFonts();
+        if (!App.installedFonts.length) App.toast('This computer did not share its font list. Use "Other font" and type the name instead.', 'error');
+        const fresh = App.fontSelect(current, onChange, opts);
+        sel.replaceWith(fresh);
+        return;
+      }
+      if (sel.value === '__custom') {
+        const name = await App.prompt('Font name', current || '', { help: 'Type the exact name of a font installed on this computer, for example "Century Gothic". If the font is missing on the projector computer, Noto Sans is used.' });
+        if (name) onChange(name); else sel.value = current || '';
+        return;
+      }
+      onChange(sel.value);
+    });
+    return sel;
+  };
+
+  /** A compact "A- 100% A+" control. */
+  App.sizeControl = function (target, value, title) {
+    const h = App.h;
+    const pct = Math.round((value || 1) * 100) + '%';
+    return h('span', { class: 'size-ctl', title: title || 'Text size' },
+      h('button', { class: 'small', title: 'Smaller text', onclick: () => App.changeTextSize(target, -0.1) }, 'A−'),
+      h('button', { class: 'small pct', title: 'Reset to 100%', onclick: () => App.changeTextSize(target, 0, 1) }, pct),
+      h('button', { class: 'small', title: 'Larger text', onclick: () => App.changeTextSize(target, 0.1) }, 'A+'));
   };
 
   App.setTransition = async function (patch) {

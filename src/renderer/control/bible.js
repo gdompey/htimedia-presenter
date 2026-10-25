@@ -47,6 +47,30 @@
     App.render('center');
   }
 
+  function importBible() {
+    const abbrev = h('input', { placeholder: 'e.g. GA, FANTE, NIV', maxlength: 10 });
+    const name = h('input', { placeholder: 'e.g. Ga Bible (Bible Society of Ghana)' });
+    const language = h('input', { placeholder: 'e.g. Ga' });
+    const copyright = h('input', { placeholder: 'Copyright line to show under verses (optional)' });
+    App.modal({
+      title: 'Import a Bible file',
+      body: [
+        h('div', { class: 'muted' }, 'Add a Bible you own or that is openly licensed. Supported files: Zefania XML, OSIS XML, USFX, VPL text ("GEN 1:1 ...") and JSON. It is stored only on this computer.'),
+        h('div', { class: 'field' }, h('label', {}, 'Short name (shows on the buttons)'), abbrev),
+        h('div', { class: 'field' }, h('label', {}, 'Full name'), name),
+        h('div', { class: 'field' }, h('label', {}, 'Language'), language),
+        h('div', { class: 'field' }, h('label', {}, 'Copyright'), copyright)],
+      actions: [{ label: 'Cancel' }, { label: 'Choose file...', primary: true, onClick: async () => {
+        if (!abbrev.value.trim()) { App.toast('Enter a short name first', 'error'); return false; }
+        const r = await window.hti.bible.import({ abbrev: abbrev.value.trim(), name: name.value.trim() || abbrev.value.trim(), language: language.value.trim(), copyright: copyright.value.trim() });
+        if (!r) return false;
+        if (!r.ok) { App.toast(r.error, 'error'); return false; }
+        App.toast(r.abbrev + ' imported (' + r.verses.toLocaleString() + ' verses)');
+        App.bibleReload();
+      } }]
+    });
+  }
+
   function render(container) {
     if (st.installed === null) {
       container.replaceChildren(h('div', { class: 'empty' }, 'Loading Bibles...'));
@@ -64,7 +88,7 @@
 
   function booksColumn() {
     const col = h('div', { class: 'bible-books' });
-    st.books.forEach(b => {
+    st.books.filter(b => b.chapters > 0).forEach(b => {
       const open = st.bookIndex === b.index;
       col.appendChild(h('div', { class: 'list-item' + (open ? ' selected' : ''), onclick: () => { st.bookIndex = open ? null : b.index; App.render('center'); } },
         h('span', { class: 'title' }, b.name), h('span', { class: 'kind' }, String(b.chapters))));
@@ -83,7 +107,14 @@
     const chosen = selectedTranslations();
     const chips = h('div', { class: 'tr-chips' }, h('span', { class: 'muted', style: { alignSelf: 'center' } }, 'Translations:'),
       st.installed.map(b => h('span', {
-        class: 'tr-chip' + (chosen.includes(b.id) ? ' on' : ''), title: b.name,
+        class: 'tr-chip' + (chosen.includes(b.id) ? ' on' : ''), title: b.name + (b.language ? ' · ' + b.language : ''),
+        oncontextmenu: (e) => App.contextMenu(e, [
+          { label: b.name, onClick: () => {} },
+          b.imported ? { label: 'Remove this imported Bible', onClick: async () => {
+            if (!(await App.confirm('Remove Bible?', 'Remove "' + b.name + '" from this computer?', 'Remove'))) return;
+            await window.hti.bible.removeImported(b.id); App.bibleReload();
+          } } : null
+        ]),
         onclick: async () => {
           let next = chosen.includes(b.id) ? chosen.filter(x => x !== b.id) : chosen.concat(b.id);
           if (!next.length) next = [b.id];
@@ -91,7 +122,11 @@
           st.books = await window.hti.bible.books(next[0]);
           if (App.scratch && App.scratch.id === 'scratch_bible' && st.ref) await lookup(st.ref); else App.render('center');
         }
-      }, b.id)));
+      }, b.id)),
+      h('button', { class: 'small', title: 'More Bibles', onclick: (e) => App.contextMenu(e, [
+        { label: 'Download more Bibles (Resources)...', onClick: () => App.dialogs.resources() },
+        { label: 'Import a Bible file you own...', onClick: () => importBible() }
+      ]) }, '+ Bibles'));
 
     const refInput = h('input', { class: 'grow', placeholder: st.mode === 'search' ? 'Search words, e.g. "love one another"' : 'Type a reference: John 3:16-18, Ps 23, 1 Cor 13:4-7', value: st.mode === 'search' ? st.query : st.ref, style: { fontSize: '16px', padding: '8px 10px' } });
     refInput.addEventListener('keydown', async (e) => {
@@ -114,6 +149,7 @@
 
     main.appendChild(chips);
     main.appendChild(h('div', { class: 'row' }, mode, refInput, st.mode === 'reference' ? vps : null,
+      st.mode === 'reference' ? App.sizeControl('scripture', App.db.settings.scriptureTextScale || 1, 'Text size for scripture') : null,
       h('button', { class: 'primary', onclick: () => refInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' })) }, st.mode === 'search' ? 'Search' : 'Look up')));
     setTimeout(() => { if (document.activeElement === document.body) refInput.focus(); }, 0);
 
@@ -151,6 +187,8 @@
       });
       main.appendChild(list);
       main.appendChild(h('div', { class: 'muted' }, 'Click a verse to show it. Use the arrow keys or space bar to move through verses.'));
+      const credits = chosen.map(id => st.installed.find(b => b.id === id)).filter(b => b && b.copyright && b.copyright !== 'Public domain');
+      if (credits.length) main.appendChild(h('div', { class: 'bible-credit' }, credits.map(b => h('div', {}, b.name + ': ' + b.copyright))));
       requestAnimationFrame(markLive);
     } else if (!st.error) {
       main.appendChild(h('div', { class: 'empty' }, 'Type a reference above and press Enter, or pick a book and chapter on the left.'));
@@ -165,5 +203,5 @@
     if (el) el.scrollIntoView({ block: 'nearest' });
   }
 
-  App.bible = { render, markLive, lookup };
+  App.bible = { render, markLive, lookup, importBible };
 })();

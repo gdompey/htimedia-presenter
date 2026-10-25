@@ -43,7 +43,7 @@ async function run({ app, getWindows, toggleScreen, outDir, errors, resources, s
     if (videoFile) {
       const [m] = importMediaFiles([path.join(fixtures, videoFile)]);
       await step('video live', `(async () => { App.db = await window.hti.db.snapshot(); App.clear('all'); App.triggerMedia('${m.id}'); return true; })()`, 2200);
-      await step('video playing', `(() => { const s = App.videoStatus; if (!s || !(s.currentTime > 0.3) || s.paused) throw new Error('not playing: ' + JSON.stringify(s)); return Math.round(s.currentTime * 10) / 10 + 's of ' + Math.round(s.duration * 10) / 10 + 's'; })()`, 200);
+      await step('video playing', `(async () => { for (let i = 0; i < 30; i++) { const s = App.videoStatus; if (s && s.currentTime > 0.3 && !s.paused) return Math.round(s.currentTime * 10) / 10 + 's of ' + Math.round(s.duration * 10) / 10 + 's'; await new Promise(r => setTimeout(r, 200)); } throw new Error('not playing: ' + JSON.stringify(App.videoStatus)); })()`, 200);
       await step('video pause + seek', `(async () => { window.hti.media.control({ action: 'pause' }); window.hti.media.control({ action: 'seek', time: 2 }); await new Promise(r => setTimeout(r, 700)); const s = App.videoStatus; if (!s.paused || Math.abs(s.currentTime - 2) > 0.3) throw new Error(JSON.stringify(s)); return 'paused at ' + s.currentTime.toFixed(1); })()`, 300);
       await shot(getWindows().control, path.join(outDir, '14-control-video.png'));
       await step('video clear at end', `(async () => { const m = App.get('media', '${m.id}'); m.endAction = 'clear'; m.loop = false; await App.save('media', m); window.hti.media.control({ action: 'loop', value: false }); window.hti.media.control({ action: 'seek', time: App.videoStatus.duration - 0.4 }); window.hti.media.control({ action: 'play' }); await new Promise(r => setTimeout(r, 2000)); if (App.liveState.background) throw new Error('background still live'); return 'cleared'; })()`, 300);
@@ -94,6 +94,53 @@ async function run({ app, getWindows, toggleScreen, outDir, errors, resources, s
     await shot(getWindows().control, path.join(outDir, '09-resources.png'));
     await step('close dialog', `(() => { document.querySelectorAll('#modal-root .backdrop').forEach(b => b.remove()); return true; })()`, 300);
     if (fixtures) await importAndVideoSteps();
+
+    // 1.2 features: text size, fonts, Ghanaian Bibles, song lists, EasyWorship.
+    await step('presentation font + size', `(async () => {
+      App.clear('all'); App.setView('show'); App.ui.side = 'library';
+      const p = App.coll('presentations').find(x => x.id === 'song_amazing_grace');
+      App.openPresentation(p.id);
+      await App.changeTextSize('presentation', 0.2);
+      const cur = App.show.currentPresentation(); cur.fontFamily = 'Montserrat'; await App.savePresentation(cur);
+      App.render('center'); App.goLive(cur.id, 1);
+      return { scale: App.show.currentPresentation().fontScale, font: App.themeFor(App.show.currentPresentation()).fontFamily };
+    })()`, 1500);
+    await step('live text size', `(async () => { await App.changeTextSize('output', 0.1); return App.db.settings.outputTextScale; })()`, 1200);
+    await shot(getWindows().control, path.join(outDir, '15-control-fonts.png'));
+    await shot(getWindows().output, path.join(outDir, '16-audience-font.png'));
+    await step('reset sizes', `(async () => { await App.changeTextSize('output', 0, 1); return true; })()`, 400);
+    await step('twi bible', `(async () => {
+      const list = await window.hti.bible.list();
+      const ids = list.map(b => b.id);
+      if (!ids.includes('ASTW')) throw new Error('ASTW not installed: ' + ids.join(','));
+      await App.saveSettings({ bibleTranslations: ['KJV', 'ASTW'] });
+      App.bibleReload(); App.setView('bible'); await new Promise(r => setTimeout(r, 600));
+      await App.bible.lookup('John 3:16-17'); App.goLive('scratch_bible', 0);
+      return ids.length + ' bibles: ' + ids.join(',');
+    })()`, 1800);
+    await shot(getWindows().control, path.join(outDir, '17-control-twi.png'));
+    await shot(getWindows().output, path.join(outDir, '18-audience-twi.png'));
+    await step('song list playlist', `(async () => {
+      App.setView('show');
+      App.dialogs.songList(['Amazing Grace', 'blessed assurance', '1. Holy, Holy, Holy', 'A Song We Do Not Have'], 'Test Service');
+      await new Promise(r => setTimeout(r, 400));
+      const btn = [...document.querySelectorAll('#modal-root .modal-foot button')].find(b => b.textContent === 'Create playlist');
+      btn.click(); await new Promise(r => setTimeout(r, 600));
+      const pl = App.coll('playlists').find(p => p.name === 'Test Service');
+      return pl.items.map(i => i.type).join(',');
+    })()`, 600);
+    const ew = process.env.HTIMEDIA_SELFTEST_EW;
+    if (ew) {
+      const r = await runImport([ew], { skipExisting: true });
+      report.easyworship = { imported: r.presentations.map(p => p.title), warnings: r.warnings, errors: r.errors };
+      report.steps.push({ name: 'easyworship import', ok: r.errors.length === 0 && r.presentations.length > 0, result: r.presentations.length + ' songs' });
+      await step('open twi song', `(async () => { App.db = await window.hti.db.snapshot(); const p = App.coll('presentations').find(x => /ABƆDE/.test(x.title)); App.ui.side = 'library'; App.openPresentation(p.id); App.goLive(p.id, 0); return p.title; })()`, 1500);
+      await shot(getWindows().control, path.join(outDir, '19-control-easyworship.png'));
+      await shot(getWindows().output, path.join(outDir, '20-audience-easyworship.png'));
+    }
+    await step('themes font menu', `(() => { App.dialogs.themes(); return document.querySelectorAll('.font-select option').length; })()`, 900);
+    await shot(getWindows().control, path.join(outDir, '21-themes-fonts.png'));
+    await step('close dialog', `(() => { document.querySelectorAll('#modal-root .backdrop').forEach(b => b.remove()); return true; })()`, 300);
     await step('logo', `(() => { App.clear('logo'); return App.live.logo; })()`, 1000);
     await shot(getWindows().output, path.join(outDir, '10-audience-logo.png'));
     await step('clear all', `(() => { App.clear('all'); return App.liveState.slide; })()`, 800);

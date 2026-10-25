@@ -55,7 +55,10 @@
 
   // Detects a section header line such as "Verse 1", "[Chorus]", "V2:", "Pre-Chorus 2".
   function parseHeader(line) {
-    const raw = String(line || '').trim();
+    // Repeat marks ("Verse (2x)", "Chorus x2", "Bridge - repeat") don't change the group name.
+    const raw = String(line || '').trim()
+      .replace(/\s*[-–]?\s*[\(\[]?\s*(?:x\s*\d+|\d+\s*x|repeat(?:\s*\d*x?)?|rpt|again|twice)\s*[\)\]]?\s*$/i, '')
+      .trim();
     if (!raw || raw.length > 32) return null;
     const m = raw.match(/^\[?\(?\s*([A-Za-z][A-Za-z\- ]*?)\s*([0-9]+)?\s*[\]\)]?\s*:?\s*$/);
     if (!m) return null;
@@ -128,6 +131,10 @@
       }
       if (!g.slides.length) continue;
       if (byName.has(g.name)) {
+        // The same section written out again word for word is a repeat, not a new group.
+        const first = byName.get(g.name);
+        const same = first.slides.length === g.slides.length && first.slides.every((s, k) => s.text.replace(/\s+/g, ' ').trim().toLowerCase() === g.slides[k].text.replace(/\s+/g, ' ').trim().toLowerCase());
+        if (same) { order.push(first.id); continue; }
         // Same name with new content: keep it distinct.
         g.name = g.name + ' (alt)';
       }
@@ -392,6 +399,76 @@
     return out;
   }
 
+  // ---------- Fonts ----------
+
+  // Bundled open-licence fonts (scripts/build-fonts.js copies them into the app, so they work offline
+  // on every computer). Every stack ends in Noto Sans, which carries Ghanaian letters such as ɛ and ɔ,
+  // so a font that lacks a letter still shows it.
+  const FONTS = [
+    { family: 'Open Sans', pkg: 'open-sans', group: 'Sans serif' },
+    { family: 'Roboto', pkg: 'roboto', group: 'Sans serif' },
+    { family: 'Lato', pkg: 'lato', group: 'Sans serif' },
+    { family: 'Montserrat', pkg: 'montserrat', group: 'Sans serif' },
+    { family: 'Poppins', pkg: 'poppins', group: 'Sans serif' },
+    { family: 'Raleway', pkg: 'raleway', group: 'Sans serif' },
+    { family: 'Nunito', pkg: 'nunito', group: 'Sans serif' },
+    { family: 'Source Sans 3', pkg: 'source-sans-3', group: 'Sans serif' },
+    { family: 'Noto Sans', pkg: 'noto-sans', group: 'Sans serif' },
+    { family: 'Work Sans', pkg: 'work-sans', group: 'Sans serif' },
+    { family: 'Josefin Sans', pkg: 'josefin-sans', group: 'Sans serif' },
+    { family: 'Ubuntu', pkg: 'ubuntu', group: 'Sans serif' },
+    { family: 'Oswald', pkg: 'oswald', group: 'Display' },
+    { family: 'Bebas Neue', pkg: 'bebas-neue', group: 'Display' },
+    { family: 'Anton', pkg: 'anton', group: 'Display' },
+    { family: 'Archivo Black', pkg: 'archivo-black', group: 'Display' },
+    { family: 'Cinzel', pkg: 'cinzel', group: 'Display' },
+    { family: 'Noto Serif', pkg: 'noto-serif', group: 'Serif' },
+    { family: 'Merriweather', pkg: 'merriweather', group: 'Serif' },
+    { family: 'Playfair Display', pkg: 'playfair-display', group: 'Serif' },
+    { family: 'Lora', pkg: 'lora', group: 'Serif' },
+    { family: 'Great Vibes', pkg: 'great-vibes', group: 'Script' },
+    { family: 'Dancing Script', pkg: 'dancing-script', group: 'Script' },
+    { family: 'Pacifico', pkg: 'pacifico', group: 'Script' },
+    { family: 'Caveat', pkg: 'caveat', group: 'Script' }
+  ];
+
+  const SYSTEM_FONTS = [
+    { family: 'System Sans', stack: '"Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif', group: 'This computer' },
+    { family: 'Arial', stack: 'Arial, Helvetica, sans-serif', group: 'This computer' },
+    { family: 'Arial Black', stack: '"Arial Black", "Helvetica Neue", Arial, sans-serif', group: 'This computer' },
+    { family: 'Georgia', stack: 'Georgia, "Times New Roman", serif', group: 'This computer' },
+    { family: 'Times New Roman', stack: '"Times New Roman", Times, serif', group: 'This computer' },
+    { family: 'Verdana', stack: 'Verdana, Geneva, sans-serif', group: 'This computer' },
+    { family: 'Tahoma', stack: 'Tahoma, Verdana, sans-serif', group: 'This computer' },
+    { family: 'Trebuchet MS', stack: '"Trebuchet MS", "Lucida Grande", sans-serif', group: 'This computer' },
+    { family: 'Impact', stack: 'Impact, "Arial Narrow Bold", sans-serif', group: 'This computer' }
+  ];
+
+  /** CSS font-family for a font name: bundled fonts get a safe fallback chain. */
+  function fontStack(family) {
+    const sys = SYSTEM_FONTS.find(f => f.family === family);
+    if (sys) return sys.stack + ', "Noto Sans"';
+    const name = String(family || '').replace(/["\\]/g, '');
+    return '"' + name + '", "Noto Sans", "Segoe UI", Helvetica, Arial, sans-serif';
+  }
+
+  /** Font name from a theme's stored font-family (handles stacks saved by older versions). */
+  function fontNameFromStack(stack) {
+    const s = String(stack || '');
+    const sys = SYSTEM_FONTS.find(f => f.stack === s || s.startsWith(f.stack));
+    if (sys) return sys.family;
+    const first = s.split(',')[0].trim().replace(/^["']|["']$/g, '');
+    if (first === 'Segoe UI') return 'System Sans';
+    return first || 'System Sans';
+  }
+
+  /** Applies a text-size multiplier to a resolved theme (presentation size x live size). */
+  function scaleTheme(theme, scale) {
+    const k = Math.max(0.3, Math.min(3, Number(scale) || 1));
+    if (k === 1) return theme;
+    return Object.assign({}, theme, { fontSize: Math.round(theme.fontSize * k), referenceSize: Math.round(theme.referenceSize * k) });
+  }
+
   // ---------- Themes ----------
 
   const DEFAULT_THEME = {
@@ -428,6 +505,6 @@
     presentationFromLyrics, flattenSlides, presentationToText,
     BOOKS, findBook, parseReference, formatReference, scripturePresentation,
     formatDuration, formatClock, timerValue, applyTokens, messageFields,
-    DEFAULT_THEME, resolveTheme
+    DEFAULT_THEME, resolveTheme, FONTS, SYSTEM_FONTS, fontStack, fontNameFromStack, scaleTheme
   };
 });

@@ -26,7 +26,7 @@
     const listEl = h('div', { class: 'lib-list' });
     body.replaceChildren(
       h('div', { class: 'side-tools' }, search,
-        h('button', { title: 'Import songs, ProPresenter files, PDF or PowerPoint', onclick: () => App.dialogs.importFiles() }, 'Import'),
+        h('button', { title: 'Import songs: files, folders, EasyWorship, ProPresenter, song lists', onclick: (e) => App.dialogs.importMenu(e) }, 'Import'),
         h('button', { title: 'New presentation', onclick: () => App.dialogs.newPresentation() }, '+')),
       listEl
     );
@@ -96,7 +96,8 @@
     const body = sideBody();
     body.replaceChildren(
       h('div', { class: 'section-label' }, 'Playlists',
-        h('button', { class: 'small', onclick: () => App.dialogs.newPlaylist() }, '+ New')),
+        h('button', { class: 'small', title: 'Make a playlist from a list of song titles', onclick: () => App.dialogs.songList() }, 'Song list'),
+        h('button', { class: 'small', style: { marginLeft: '4px' }, onclick: () => App.dialogs.newPlaylist() }, '+ New')),
       ...App.coll('playlists').map(playlistBlock),
       h('div', { class: 'section-label' }, 'Templates',
         h('button', { class: 'small', title: 'Save the selected playlist as a template', onclick: saveAsTemplate }, 'Save current')),

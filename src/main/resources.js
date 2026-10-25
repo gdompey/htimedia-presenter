@@ -191,11 +191,16 @@ class ResourceManager {
       return { online: false, error: e.message, bundled };
     }
     const installed = this.installed();
+    // Packs this computer has been offered before; a new default pack (e.g. a new Bible) installs once,
+    // and a pack the user removed is not brought back.
+    const seen = new Set(this.store.settings.resources.seenPacks || []);
     const wanted = manifest.packs.filter(p =>
       (installed[p.id] && installed[p.id].version !== p.version && this.store.settings.resources.autoUpdate) ||
-      (!installed[p.id] && p.default && firstRun)
+      (!installed[p.id] && p.default && (firstRun || !seen.has(p.id)))
     ).map(p => p.id);
     const results = wanted.length ? await this.install(wanted) : [];
+    this.store.settings.resources.seenPacks = Array.from(new Set([...seen, ...manifest.packs.map(p => p.id)]));
+    this.store.updateSettings({});
     if (firstRun) this.store.updateSettings({ resources: { firstRunDone: true } });
     return { online: true, bundled, results };
   }
@@ -227,13 +232,33 @@ class BibleService {
     this.cache = new Map();
   }
 
+  /** Lists installed Bibles from each file's header only (the full text loads on first use). */
   list() {
     if (!fs.existsSync(this.dir)) return [];
+    const field = (head, k) => { const m = new RegExp('"' + k + '":("(?:[^"\\\\]|\\\\.)*"|true|false)').exec(head); try { return m ? JSON.parse(m[1]) : ''; } catch (e) { return ''; } };
     return fs.readdirSync(this.dir).filter(f => f.endsWith('.json')).map(f => {
       const id = f.replace(/\.json$/, '');
-      const b = this.load(id);
-      return { id, name: b ? b.name : id, language: b ? b.language : '' };
-    }).sort((a, b) => a.id === 'KJV' ? -1 : b.id === 'KJV' ? 1 : a.id.localeCompare(b.id));
+      let head = '';
+      try {
+        const fd = fs.openSync(path.join(this.dir, f), 'r');
+        const buf = Buffer.alloc(4096);
+        const n = fs.readSync(fd, buf, 0, 4096, 0);
+        fs.closeSync(fd);
+        head = buf.subarray(0, n).toString('utf8').split('"books"')[0];
+      } catch (e) { /* unreadable: list by id */ }
+      return { id, name: field(head, 'name') || id, language: field(head, 'language'), copyright: field(head, 'copyright'), imported: field(head, 'imported') === true };
+    }).sort((a, b) => {
+      const rank = (x) => x.id === 'KJV' ? 0 : /^English/.test(x.language) ? 1 : x.imported ? 3 : 2;
+      return rank(a) - rank(b) || a.id.localeCompare(b.id);
+    });
+  }
+
+  removeImported(id) {
+    const f = path.join(this.dir, id + '.json');
+    if (!fs.existsSync(f)) return false;
+    fs.renameSync(f, f + '.removed');
+    this.cache.delete(id);
+    return true;
   }
 
   load(id) {
